@@ -32,5 +32,6 @@
     "threads": 4,
     "timeoutSec": 180
   },
+  "heartbeatSec": 1800,
   "stateFile": "state.json"
 }

@@ -1,7 +1,9 @@
 config.json
 state.json
 node_modules/
-workspace/memory/log/
 workspace/inbox/
 workspace/jobs/
 workspace/.heartbeat-status
+# Echtes Memory (Systemdetails, Vorhaben) bleibt lokal, nicht ins Repo:
+workspace/USER.md
+workspace/memory/

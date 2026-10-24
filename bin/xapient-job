@@ -1,0 +1,71 @@
+#!/usr/bin/env node
+// xapient-job: run long tasks detached so they outlive a single agent turn and keep the gateway responsive.
+// Jobs write to workspace/jobs/<name>.log; metadata in <name>.json. Query status on demand.
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const JOBS_DIR = path.join(ROOT, 'workspace', 'jobs');
+fs.mkdirSync(JOBS_DIR, { recursive: true });
+
+const metaPath = (n) => path.join(JOBS_DIR, `${n}.json`);
+const logPath  = (n) => path.join(JOBS_DIR, `${n}.log`);
+const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+const readMeta = (n) => { try { return JSON.parse(fs.readFileSync(metaPath(n), 'utf8')); } catch { return null; } };
+const saveMeta = (j) => fs.writeFileSync(metaPath(j.name), JSON.stringify(j, null, 2));
+const fmtDur = (ms) => { const s = Math.round(ms / 1000); if (s < 60) return `${s}s`; const m = Math.floor(s / 60); return m < 60 ? `${m}m${s % 60}s` : `${Math.floor(m / 60)}h${m % 60}m`; };
+const tail = (n, lines = 20) => { try { return fs.readFileSync(logPath(n), 'utf8').trimEnd().split('\n').slice(-lines).join('\n'); } catch { return '(kein Log)'; } };
+
+function reconcile(j) {  // mark finished jobs whose process is gone
+  if (j.status === 'running' && !alive(j.pid)) { j.status = 'done'; j.endedAt ??= Date.now(); saveMeta(j); }
+  return j;
+}
+
+function start(name, cmd) {
+  if (!name || !cmd) { console.error('usage: xapient-job start <name> <cmd...>'); process.exit(1); }
+  const ex = readMeta(name);
+  if (ex && alive(ex.pid)) { console.error(`job '${name}' läuft schon (pid ${ex.pid})`); process.exit(1); }
+  const out = fs.openSync(logPath(name), 'w');
+  const child = spawn('bash', ['-c', cmd], { detached: true, stdio: ['ignore', out, out] });  // detached -> survives this turn
+  child.unref();
+  saveMeta({ name, cmd, pid: child.pid, startedAt: Date.now(), status: 'running' });
+  console.log(`job '${name}' gestartet (pid ${child.pid})`);
+}
+
+function list() {
+  const names = fs.readdirSync(JOBS_DIR).filter(f => f.endsWith('.json')).map(f => f.slice(0, -5));
+  if (!names.length) return console.log('keine jobs');
+  for (const n of names) {
+    const j = reconcile(readMeta(n)); if (!j) continue;
+    const dur = fmtDur((j.endedAt ?? Date.now()) - j.startedAt);
+    console.log(`${n}  [${j.status === 'running' ? 'running' : j.status}]  ${dur}  pid ${j.pid}  :: ${j.cmd}`);
+  }
+}
+
+function status(name) {
+  const j = readMeta(name); if (!j) { console.error(`job '${name}' unbekannt`); process.exit(1); }
+  reconcile(j);
+  const dur = fmtDur((j.endedAt ?? Date.now()) - j.startedAt);
+  console.log(`job ${name}: ${j.status}  (${dur}, pid ${j.pid})`);
+  console.log(`cmd: ${j.cmd}`);
+  console.log('--- letzte Ausgabe ---');
+  console.log(tail(name, 25));
+}
+
+function stop(name) {
+  const j = readMeta(name); if (!j) { console.error(`job '${name}' unbekannt`); process.exit(1); }
+  try { process.kill(-j.pid, 'SIGTERM'); } catch {}  // negative pid = whole detached group
+  try { process.kill(j.pid, 'SIGTERM'); } catch {}
+  j.status = 'stopped'; j.endedAt = Date.now(); saveMeta(j);
+  console.log(`job '${name}' gestoppt`);
+}
+
+const [, , action, name, ...rest] = process.argv;
+if (action === 'start') start(name, rest.join(' '));
+else if (action === 'status') status(name);
+else if (action === 'log') console.log(tail(name, Number(rest[0]) || 40));
+else if (action === 'stop') stop(name);
+else if (action === 'list' || !action) list();
+else { console.error('actions: start <name> <cmd...> | list | status <name> | log <name> [n] | stop <name>'); process.exit(1); }

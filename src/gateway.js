@@ -7,10 +7,12 @@ import { createSignal } from './signal.js';
 import { createTelegram } from './telegram.js';
 import { runClaude } from './claude.js';
 import { startScheduler } from './scheduler.js';
+import { createTranscriber } from './transcribe.js';
 
 const cfg = loadConfig();
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 const channel = cfg.channel === 'signal' ? createSignal(cfg.signal, log) : createTelegram(cfg.telegram, log);
+const transcriber = createTranscriber(cfg.transcription, log);
 const owners = cfg.owners.map(String);
 const owner = owners[0];  // primary recipient for agent/cron messages
 
@@ -95,7 +97,8 @@ async function onMessage(msg) {
   const text = msg.text.trim();
   const cmd = commands[text.split(/\s/)[0].toLowerCase().replace(/@\w+$/, '')];  // strip telegram /cmd@botname
   if (cmd) return channel.send(msg.from, cmd());
-  const body = [text, ...attachmentLines(msg.attachments)].filter(Boolean).join('\n');
+  const { transcripts, rest } = await transcriber.process(msg.attachments);  // voice/audio -> text, rest passed as attachment
+  const body = [text, ...transcripts, ...attachmentLines(rest)].filter(Boolean).join('\n');
   if (!body) return;
   log(`${channel.name} message`, body.slice(0, 80));
   if (busy) channel.send(msg.from, `⏳ In Queue (Position ${queue.length + 1}).`).catch(() => {});

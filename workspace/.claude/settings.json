@@ -70,7 +70,8 @@
       "Bash(env)",
       "Bash(nproc)",
       "Bash(basename:*)",
-      "Bash(dirname:*)"
+      "Bash(dirname:*)",
+      "Bash(gitleaks:*)"
     ],
     "deny": [
       "Bash(sudo:*)",

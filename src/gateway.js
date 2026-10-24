@@ -45,10 +45,34 @@ const HEARTBEAT_MS = (cfg.heartbeatSec ?? 60) * 1000;  // periodic status ping w
 const STATUS_FILE = `${cfg.claude.workspace}/.heartbeat-status`;  // agent may write a short "what I'm doing" line here; shown in the heartbeat
 const readStatus = () => { try { return fs.readFileSync(STATUS_FILE, 'utf8').trim().slice(0, 300); } catch { return ''; } };
 
+let activity = null;  // live view of what the running claude process is doing (from stream-json events)
+
+function liveStatus() {
+  if (!activity) return '';
+  const bits = [];
+  if (activity.lastTool) bits.push(`grad: ${activity.lastTool}`);
+  if (activity.subagents) bits.push(`${activity.subagents} subagent${activity.subagents > 1 ? 's' : ''}`);
+  if (activity.tools) bits.push(`${activity.tools} tool-calls`);
+  return bits.join(' · ');
+}
+
+function onEvent(evt) {
+  if (!activity) return;
+  if (evt.type === 'assistant' && evt.message?.content) {
+    for (const b of evt.message.content) {
+      if (b.type !== 'tool_use') continue;
+      activity.tools++;
+      activity.lastTool = b.name;
+      if (/^(task|agent)$/i.test(b.name)) activity.subagents++;  // subagents launched (cumulative)
+    }
+  }
+}
+
 async function run(prompt, sessionId, origin) {
-  const { child, done } = runClaude(cfg, prompt, sessionId, { XAPIENT_ORIGIN: origin });
+  activity = { tools: 0, subagents: 0, lastTool: null };
+  const { child, done } = runClaude(cfg, prompt, sessionId, { XAPIENT_ORIGIN: origin }, onEvent);
   current = { origin, child, started: Date.now() };
-  try { return await done; } finally { current = null; }
+  try { return await done; } finally { current = null; activity = null; }
 }
 
 async function ask(prompt, origin, to = owner) {
@@ -60,8 +84,8 @@ async function ask(prompt, origin, to = owner) {
   const heartbeat = interactive && HEARTBEAT_MS
     ? setInterval(() => {  // first ping after HEARTBEAT_MS; quick jobs stay quiet
         const mins = Math.round((Date.now() - started) / 60000);
-        const note = readStatus();  // optional "what I'm doing" line the agent wrote
-        channel.send(to, `⏳ dran seit ${mins} min${note ? `\n${note}` : ''}`).catch(() => {});
+        const extra = [liveStatus(), readStatus()].filter(Boolean).join('\n');  // live events + optional agent note
+        channel.send(to, `⏳ dran seit ${mins} min${extra ? `\n${extra}` : ''}`).catch(() => {});
       }, HEARTBEAT_MS)
     : null;
   try {

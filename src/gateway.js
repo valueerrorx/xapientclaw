@@ -41,6 +41,7 @@ async function pump() {
 }
 
 const stamp = () => new Date().toLocaleString('de-AT', { timeZone: process.env.TZ || 'Europe/Vienna' });
+const HEARTBEAT_MS = (cfg.heartbeatSec ?? 60) * 1000;  // periodic "working…" ping while a job runs (0 = off)
 
 async function run(prompt, sessionId, origin) {
   const { child, done } = runClaude(cfg, prompt, sessionId, { XAPIENT_ORIGIN: origin });
@@ -49,8 +50,12 @@ async function run(prompt, sessionId, origin) {
 }
 
 async function ask(prompt, origin, to = owner) {
+  const interactive = !origin.startsWith('cron');  // cron replies are NOOP-silent -> no heartbeat
   const typing = setInterval(() => channel.typing(to).catch(() => {}), channel.typingEveryMs);  // typing indicator expires
   channel.typing(to).catch(() => {});
+  const heartbeat = interactive && HEARTBEAT_MS
+    ? setInterval(() => channel.send(to, '⏳ working…').catch(() => {}), HEARTBEAT_MS)  // first ping after HEARTBEAT_MS; quick jobs stay quiet
+    : null;
   try {
     let res;
     try { res = await run(prompt, state.sessionId, origin); } catch (e) {
@@ -67,6 +72,7 @@ async function ask(prompt, origin, to = owner) {
     await channel.send(to, `⚠️ ${e.message}`.slice(0, 1500)).catch(() => {});
   } finally {
     clearInterval(typing);
+    if (heartbeat) clearInterval(heartbeat);
     channel.typing(to, true).catch(() => {});
   }
 }
@@ -101,7 +107,8 @@ async function onMessage(msg) {
   const body = [text, ...transcripts, ...attachmentLines(rest)].filter(Boolean).join('\n');
   if (!body) return;
   log(`${channel.name} message`, body.slice(0, 80));
-  if (busy) channel.send(msg.from, `⏳ In Queue (Position ${queue.length + 1}).`).catch(() => {});
+  const ack = busy ? `👍 Bekommen – in der Warteschlange (Platz ${queue.length + 1}).` : '👍 Bekommen, leg los…';
+  channel.send(msg.from, ack).catch(() => {});  // immediate receipt confirmation
   enqueue(() => ask(`[${channel.name} ${stamp()}] ${body}`, channel.name, msg.from));
 }
 

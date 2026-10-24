@@ -33,7 +33,13 @@ export function createTelegram({ token, inboxDir, apiUrl = 'https://api.telegram
   }
 
   async function send(to, text) {
-    for (const part of chunks(text)) await call('sendMessage', { chat_id: to, text: part });
+    for (const part of chunks(text)) {
+      try {
+        await call('sendMessage', { chat_id: to, text: part, parse_mode: 'HTML' });  // <b>, <code>, <pre> tables
+      } catch {
+        await call('sendMessage', { chat_id: to, text: part });  // fallback: plain text so delivery never fails
+      }
+    }
   }
 
   const typing = (to, stop = false) => stop ? Promise.resolve() : call('sendChatAction', { chat_id: to, action: 'typing' });

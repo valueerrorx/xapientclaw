@@ -41,7 +41,9 @@ async function pump() {
 }
 
 const stamp = () => new Date().toLocaleString('de-AT', { timeZone: process.env.TZ || 'Europe/Vienna' });
-const HEARTBEAT_MS = (cfg.heartbeatSec ?? 60) * 1000;  // periodic "working…" ping while a job runs (0 = off)
+const HEARTBEAT_MS = (cfg.heartbeatSec ?? 60) * 1000;  // periodic status ping while a job runs (0 = off)
+const STATUS_FILE = `${cfg.claude.workspace}/.heartbeat-status`;  // agent may write a short "what I'm doing" line here; shown in the heartbeat
+const readStatus = () => { try { return fs.readFileSync(STATUS_FILE, 'utf8').trim().slice(0, 300); } catch { return ''; } };
 
 async function run(prompt, sessionId, origin) {
   const { child, done } = runClaude(cfg, prompt, sessionId, { XAPIENT_ORIGIN: origin });
@@ -51,10 +53,16 @@ async function run(prompt, sessionId, origin) {
 
 async function ask(prompt, origin, to = owner) {
   const interactive = !origin.startsWith('cron');  // cron replies are NOOP-silent -> no heartbeat
+  const started = Date.now();
+  try { fs.unlinkSync(STATUS_FILE); } catch {}  // drop stale status from a previous job
   const typing = setInterval(() => channel.typing(to).catch(() => {}), channel.typingEveryMs);  // typing indicator expires
   channel.typing(to).catch(() => {});
   const heartbeat = interactive && HEARTBEAT_MS
-    ? setInterval(() => channel.send(to, '⏳ working…').catch(() => {}), HEARTBEAT_MS)  // first ping after HEARTBEAT_MS; quick jobs stay quiet
+    ? setInterval(() => {  // first ping after HEARTBEAT_MS; quick jobs stay quiet
+        const mins = Math.round((Date.now() - started) / 60000);
+        const note = readStatus();  // optional "what I'm doing" line the agent wrote
+        channel.send(to, `⏳ dran seit ${mins} min${note ? `\n${note}` : ''}`).catch(() => {});
+      }, HEARTBEAT_MS)
     : null;
   try {
     let res;
@@ -73,6 +81,7 @@ async function ask(prompt, origin, to = owner) {
   } finally {
     clearInterval(typing);
     if (heartbeat) clearInterval(heartbeat);
+    try { fs.unlinkSync(STATUS_FILE); } catch {}  // status only lives for the duration of a job
     channel.typing(to, true).catch(() => {});
   }
 }

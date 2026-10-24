@@ -3,3 +3,5 @@ state.json
 node_modules/
 workspace/memory/log/
 workspace/inbox/
+workspace/jobs/
+workspace/.heartbeat-status

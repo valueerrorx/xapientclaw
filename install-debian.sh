@@ -14,7 +14,7 @@ system_part() {
 
   say "apt pakete"
   apt-get update -qq
-  apt-get install -y -qq curl ca-certificates git cron jq openssl
+  apt-get install -y -qq curl ca-certificates git git-lfs cron jq openssl ffmpeg cmake build-essential
 
   say "node >= 20"
   if ! command -v node >/dev/null || (( $(node -p 'process.versions.node.split(".")[0]') < 20 )); then
@@ -39,6 +39,25 @@ system_part() {
     signal-cli --version
   fi
 
+  if ! command -v gitleaks >/dev/null; then  # pflicht für den push-datenschutz-check
+    say "gitleaks ($arch)"
+    local gl="${GITLEAKS_VERSION:-8.21.2}" gltmp
+    if [[ "$arch" == amd64 ]]; then
+      gltmp="$(mktemp -d)"
+      curl -fL "https://github.com/gitleaks/gitleaks/releases/download/v$gl/gitleaks_${gl}_linux_x64.tar.gz" | tar xz -C "$gltmp"
+      install -m755 "$gltmp/gitleaks" /usr/local/bin/gitleaks
+      rm -rf "$gltmp"
+    elif [[ "$arch" == arm64 ]]; then
+      gltmp="$(mktemp -d)"
+      curl -fL "https://github.com/gitleaks/gitleaks/releases/download/v$gl/gitleaks_${gl}_linux_arm64.tar.gz" | tar xz -C "$gltmp"
+      install -m755 "$gltmp/gitleaks" /usr/local/bin/gitleaks
+      rm -rf "$gltmp"
+    else
+      echo "gitleaks: arch $arch -> bitte manuell installieren"
+    fi
+    command -v gitleaks >/dev/null && gitleaks version
+  fi
+
   say "cron + linger für $user"
   systemctl enable --now cron
   loginctl enable-linger "$user"
@@ -50,6 +69,19 @@ user_part() {
   export PATH="$HOME/.local/bin:$PATH"
   command -v claude >/dev/null || curl -fsSL https://claude.ai/install.sh | bash
   claude --version
+
+  say "git-lfs (für repos mit LFS, z. B. ai-trader)"
+  git lfs install
+
+  say "whisper.cpp + modell ggml-small (lokale spracherkennung für voice)"
+  local wd="$HOME/whisper.cpp"
+  if [[ ! -x "$wd/build/bin/whisper-cli" ]]; then
+    [[ -d "$wd/.git" ]] || git clone --depth 1 https://github.com/ggml-org/whisper.cpp "$wd"
+    cmake -B "$wd/build" -S "$wd"
+    cmake --build "$wd/build" -j --config Release
+  fi
+  [[ -f "$wd/models/ggml-small.bin" ]] || "$wd/models/download-ggml-model.sh" small
+  echo "whisper-cli: $wd/build/bin/whisper-cli  modell: $wd/models/ggml-small.bin"
 
   say "systemd user units"
   mkdir -p ~/.config/systemd/user

@@ -140,7 +140,7 @@ async function onMessage(msg) {
   const body = [text, ...transcripts, ...attachmentLines(rest)].filter(Boolean).join('\n');
   if (!body) return;
   log(`${channel.name} message`, body.slice(0, 80));
-  const ack = busy ? `message received.. in queue (#${queue.length + 1})` : 'message received.. working...';
+  const ack = busy ? `message received! in queue (#${queue.length + 1})` : 'message received! working...';
   channel.send(msg.from, ack).catch(() => {});  // immediate receipt confirmation
   enqueue(() => ask(`[${channel.name} ${stamp()}] ${body}`, channel.name, msg.from));
 }

@@ -17,6 +17,10 @@ export function loadConfig() {
   if (cfg.signal) cfg.signal.attachmentsDir = expand(cfg.signal.attachmentsDir ?? '~/.local/share/signal-cli/attachments');
   if (cfg.telegram) cfg.telegram.inboxDir = expand(cfg.telegram.inboxDir ?? path.join(cfg.claude.workspace, 'inbox'));
   cfg.stateFile = expand(cfg.stateFile ?? 'state.json');
+  if (cfg.transcription) {
+    if (cfg.transcription.whisperCli) cfg.transcription.whisperCli = expand(cfg.transcription.whisperCli);
+    if (cfg.transcription.model) cfg.transcription.model = expand(cfg.transcription.model);
+  }
   cfg.binDir = path.join(ROOT, 'bin');
   return cfg;
 }

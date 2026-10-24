@@ -23,5 +23,14 @@
     "maxTurns": 150,
     "timeoutMin": 45
   },
+  "transcription": {
+    "enabled": true,
+    "whisperCli": "~/whisper.cpp/build/bin/whisper-cli",
+    "model": "~/whisper.cpp/models/ggml-small.bin",
+    "language": "de",
+    "ffmpeg": "ffmpeg",
+    "threads": 4,
+    "timeoutSec": 180
+  },
   "stateFile": "state.json"
 }

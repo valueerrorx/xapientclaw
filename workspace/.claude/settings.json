@@ -71,7 +71,8 @@
       "Bash(nproc)",
       "Bash(basename:*)",
       "Bash(dirname:*)",
-      "Bash(gitleaks:*)"
+      "Bash(gitleaks:*)",
+      "Bash(xapient-job:*)"
     ],
     "deny": [
       "Bash(sudo:*)",

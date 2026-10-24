@@ -1,0 +1,19 @@
+#!/usr/bin/env node
+// xapient-inject NAME: queues workspace/cron/NAME.md as prompt for the master agent (called by cron)
+import fs from 'node:fs';
+import path from 'node:path';
+import { loadConfig } from '../src/config.js';
+
+const cfg = loadConfig();
+const name = process.argv[2];
+if (!/^[a-z0-9-]+$/.test(name ?? '')) { console.error('usage: xapient-inject <name>'); process.exit(1); }
+
+const file = path.join(cfg.claude.workspace, 'cron', `${name}.md`);
+const prompt = fs.readFileSync(file, 'utf8').trim();
+
+const res = await fetch(`http://${cfg.http.host}:${cfg.http.port}/inject`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'x-xapient-token': cfg.http.token },
+  body: JSON.stringify({ name, prompt }),
+});
+if (!res.ok) { console.error(await res.text()); process.exit(1); }

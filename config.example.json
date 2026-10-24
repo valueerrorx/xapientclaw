@@ -1,0 +1,27 @@
+{
+  "channel": "telegram",
+  "owners": ["123456789"],
+  "telegram": {
+    "token": "123456:ABC-DEF_vom_BotFather",
+    "inboxDir": "workspace/inbox"
+  },
+  "signal": {
+    "account": "+43681XXXXXXX",
+    "rpcUrl": "http://127.0.0.1:8080",
+    "attachmentsDir": "~/.local/share/signal-cli/attachments"
+  },
+  "http": {
+    "host": "127.0.0.1",
+    "port": 7777,
+    "token": "CHANGE-ME-long-random-string"
+  },
+  "claude": {
+    "bin": "claude",
+    "workspace": "workspace",
+    "addDirs": ["/srv/data/thomas/GIT"],
+    "model": null,
+    "maxTurns": 150,
+    "timeoutMin": 45
+  },
+  "stateFile": "state.json"
+}

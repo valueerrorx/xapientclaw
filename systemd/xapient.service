@@ -1,0 +1,14 @@
+[Unit]
+Description=xapient gateway (telegram/signal <-> claude code)
+After=network-online.target
+
+[Service]
+WorkingDirectory=%XAPIENT_DIR%
+ExecStart=/usr/bin/node src/gateway.js
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TZ=Europe/Vienna
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

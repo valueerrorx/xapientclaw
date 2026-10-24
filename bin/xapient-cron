@@ -1,0 +1,32 @@
+#!/usr/bin/env node
+// xapient-cron list | add NAME "SCHEDULE" | remove NAME  — edits workspace/cron/schedule.json (gateway reads it every minute)
+import fs from 'node:fs';
+import path from 'node:path';
+import { loadConfig } from '../src/config.js';
+import { parse, readSchedule, scheduleFile } from '../src/scheduler.js';
+
+const ws = loadConfig().claude.workspace;
+const [cmd = 'list', name, sched] = process.argv.slice(2);
+const fail = msg => { console.error(msg); process.exit(1); };
+const jobs = readSchedule(ws);
+const save = () => fs.writeFileSync(scheduleFile(ws), JSON.stringify(jobs, null, 2) + '\n');
+
+if (cmd === 'list') {
+  const lines = Object.entries(jobs).map(([n, s]) => `${s}  ${n}`);
+  console.log(lines.length ? lines.join('\n') : '(keine xapient jobs)');
+} else if (cmd === 'add') {
+  if (!/^[a-z0-9-]+$/.test(name ?? '')) fail('name: nur a-z0-9-');
+  if (!sched) fail('schedule fehlt');
+  try { parse(sched); } catch (e) { fail(`schedule: ${e.message}`); }
+  if (!fs.existsSync(path.join(ws, 'cron', `${name}.md`))) fail(`prompt fehlt: ${ws}/cron/${name}.md`);
+  jobs[name] = sched;
+  save();
+  console.log(`ok: ${sched} -> ${name}`);
+} else if (cmd === 'remove') {
+  if (!(name in jobs)) fail(`kein job: ${name}`);
+  delete jobs[name];
+  save();
+  console.log(`removed: ${name}`);
+} else {
+  fail('usage: xapient-cron list | add NAME "SCHEDULE" | remove NAME');
+}

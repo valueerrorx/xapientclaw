@@ -1,0 +1,12 @@
+#!/usr/bin/env node
+// xapient-restart: gateway exits after the current job, systemd restarts it with the current code
+import { loadConfig } from '../src/config.js';
+
+const cfg = loadConfig();
+const res = await fetch(`http://${cfg.http.host}:${cfg.http.port}/restart`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'x-xapient-token': cfg.http.token },
+  body: '{}',
+});
+if (!res.ok) { console.error(await res.text()); process.exit(1); }
+console.log('restart nach aktuellem Auftrag geplant');

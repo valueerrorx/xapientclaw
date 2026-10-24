@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Read", "Edit", "Write", "Glob", "Grep", "WebSearch", "WebFetch",
+      "Bash(xapient-send:*)", "Bash(xapient-cron:*)", "Bash(xapient-restart:*)",
+      "Bash(git:*)", "Bash(gh:*)",
+      "Bash(npm:*)", "Bash(npx:*)", "Bash(node:*)",
+      "Bash(ls:*)", "Bash(cat:*)", "Bash(head:*)", "Bash(tail:*)", "Bash(wc:*)",
+      "Bash(grep:*)", "Bash(find:*)", "Bash(mkdir:*)", "Bash(cp:*)", "Bash(mv:*)",
+      "Bash(date:*)", "Bash(df:*)", "Bash(du:*)"
+    ],
+    "deny": [
+      "Bash(sudo:*)", "Bash(su:*)",
+      "Bash(git push --force:*)", "Bash(git push -f:*)",
+      "Bash(git push origin main:*)", "Bash(git push origin master:*)",
+      "Read(~/.ssh/**)", "Read(~/.gnupg/**)", "Read(~/.local/share/signal-cli/data/**)"
+    ]
+  }
+}

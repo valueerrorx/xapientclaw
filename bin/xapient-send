@@ -1,0 +1,16 @@
+#!/usr/bin/env node
+// xapient-send "text" (or via stdin): sends a signal message to the owner
+import { loadConfig } from '../src/config.js';
+
+const cfg = loadConfig();
+let text = process.argv.slice(2).join(' ');
+if (!text && !process.stdin.isTTY) for await (const c of process.stdin) text += c;
+if (!text.trim()) { console.error('usage: xapient-send "text"'); process.exit(1); }
+
+const res = await fetch(`http://${cfg.http.host}:${cfg.http.port}/send`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'x-xapient-token': cfg.http.token },
+  body: JSON.stringify({ text }),
+});
+if (!res.ok) { console.error(await res.text()); process.exit(1); }
+console.log('sent');

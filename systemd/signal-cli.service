@@ -1,0 +1,11 @@
+[Unit]
+Description=signal-cli JSON-RPC daemon (xapient)
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/signal-cli daemon --http 127.0.0.1:8080
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

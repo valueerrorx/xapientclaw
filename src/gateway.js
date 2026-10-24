@@ -37,7 +37,7 @@ async function pump() {
     try { await queue.shift()(); } catch (e) { log('job error', e.message); }
   }
   busy = false;
-  if (restartPending) { log('restart'); process.exit(0); }
+  if (restartPending) { log('restart'); process.exit(1); }  // non-zero so systemd Restart=on-failure brings us back
 }
 
 const stamp = () => new Date().toLocaleString('de-AT', { timeZone: process.env.TZ || 'Europe/Vienna' });
@@ -177,7 +177,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && req.url === '/restart') {
       restartPending = true;
-      if (!busy) setTimeout(() => { log('restart'); process.exit(0); }, 500);  // let the reply go out
+      if (!busy) setTimeout(() => { log('restart'); process.exit(1); }, 500);  // non-zero -> systemd restarts (on-failure)
       return reply(202, { restart: busy ? 'after current job' : 'now' });
     }
     reply(404, { error: 'not found' });

@@ -6,6 +6,7 @@ import { loadConfig } from './config.js';
 import { createSignal } from './signal.js';
 import { createTelegram } from './telegram.js';
 import { runClaude } from './claude.js';
+import { createSession } from './session.js';
 import { startScheduler } from './scheduler.js';
 import { createTranscriber } from './transcribe.js';
 
@@ -68,11 +69,32 @@ function onEvent(evt) {
   }
 }
 
+// Persistent session (one long-lived claude process). Set up at boot below; if it
+// can't come up, usePersistent stays false and we use the per-turn `-p` path.
+let session = null;
+let usePersistent = false;
+
 async function run(prompt, sessionId, origin) {
   activity = { tools: 0, subagents: 0, lastTool: null };
+  if (usePersistent && session) {
+    current = { origin, child: session.getChild(), started: Date.now() };
+    try { return await session.ask(prompt); } finally { current = null; activity = null; }
+  }
   const { child, done } = runClaude(cfg, prompt, sessionId, { XAPIENT_ORIGIN: origin }, onEvent);
   current = { origin, child, started: Date.now() };
   try { return await done; } finally { current = null; activity = null; }
+}
+
+if (cfg.claude.persistent) {
+  session = createSession(cfg, onEvent, state.sessionId);
+  try {
+    await session.start();
+    usePersistent = true;
+    log('persistent session ready');
+  } catch (e) {
+    log('persistent start failed, falling back to -p:', e.message);
+    session = null;
+  }
 }
 
 async function ask(prompt, origin, to = owner) {
@@ -114,7 +136,7 @@ async function ask(prompt, origin, to = owner) {
 const commands = {
   '/start': () => 'xapient bereit. /help für Befehle.',
   '/help': () => '/new – neue Session\n/stop – laufenden Job abbrechen + Queue leeren\n/status – Status',
-  '/new': () => { state.sessionId = null; saveState(); return '🆕 Neue Session beim nächsten Auftrag.'; },
+  '/new': () => { state.sessionId = null; saveState(); session?.reset(); return '🆕 Neue Session beim nächsten Auftrag.'; },
   '/stop': () => {
     queue.length = 0;
     if (!current) return 'Nichts läuft.';
@@ -188,4 +210,4 @@ server.listen(cfg.http.port, cfg.http.host, () => log(`http on ${cfg.http.host}:
 channel.listen(onMessage, id => owners.includes(String(id)));
 startScheduler(cfg.claude.workspace, inject, log);
 
-for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { current?.child.kill('SIGTERM'); process.exit(0); });
+for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { session?.kill(); current?.child?.kill('SIGTERM'); process.exit(0); });

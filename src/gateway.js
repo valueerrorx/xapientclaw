@@ -97,6 +97,13 @@ if (cfg.claude.persistent) {
   }
 }
 
+// Boot notification: tell Thomas we (re)started and in which mode. Fires once per
+// gateway start (the daemon stays up; per-turn claude spawns don't reboot it).
+channel.send(owner, usePersistent
+  ? '♻️ xapient neu gestartet — 🟢 <b>persistent</b> (ein Dauerprozess, bleibt wach zwischen Turns)'
+  : '♻️ xapient neu gestartet — 🟡 per-turn (-p)'
+).catch(() => {});
+
 async function ask(prompt, origin, to = owner) {
   const interactive = !origin.startsWith('cron');  // cron replies are NOOP-silent -> no heartbeat
   const started = Date.now();

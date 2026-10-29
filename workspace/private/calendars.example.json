@@ -1,0 +1,17 @@
+{
+  "_hinweis": "Kopiere diese Datei nach workspace/private/calendars.json und trage deine echten iCal-URLs ein. calendars.json ist gitignored (enthaelt geheime Links/Tokens).",
+  "tz": "Europe/Vienna",
+  "weather": { "name": "Mein Ort", "lat": 46.6, "lon": 14.1 },
+  "calendars": [
+    {
+      "label": "Stundenplan",
+      "type": "untis",
+      "url": "https://DEINE-SCHULE.webuntis.com/WebUntis/ical_export?school=...&id=...&token=..."
+    },
+    {
+      "label": "Privat",
+      "type": "google",
+      "url": "https://calendar.google.com/calendar/ical/DEINE-ADRESSE%40gmail.com/private-DEINGEHEIMER-TOKEN/basic.ics"
+    }
+  ]
+}

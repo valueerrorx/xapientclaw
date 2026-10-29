@@ -14,7 +14,8 @@ system_part() {
 
   say "apt pakete"
   apt-get update -qq
-  apt-get install -y -qq curl ca-certificates git git-lfs cron jq openssl ffmpeg cmake build-essential
+  apt-get install -y -qq curl ca-certificates git git-lfs cron jq openssl ffmpeg cmake build-essential \
+    python3-venv python3-pip python3-dev libsndfile1  # python3* + libsndfile: lokaler TTS-Dienst (pocket-tts)
 
   say "node >= 20"
   if ! command -v node >/dev/null || (( $(node -p 'process.versions.node.split(".")[0]') < 20 )); then
@@ -83,10 +84,25 @@ user_part() {
   [[ -f "$wd/models/ggml-small.bin" ]] || "$wd/models/download-ggml-model.sh" small
   echo "whisper-cli: $wd/build/bin/whisper-cli  modell: $wd/models/ggml-small.bin"
 
+  say "node-abhaengigkeiten (gateway, node-ical fuer den morgen-brief)"
+  ( cd "$HERE" && npm install --no-audit --no-fund )
+
+  say "tts-dienst (pocket-tts, lokale stimme)"
+  local td="$HOME/tts"
+  mkdir -p "$td/voices"
+  [[ -x "$td/.venv/bin/python" ]] || python3 -m venv "$td/.venv"
+  "$td/.venv/bin/pip" install -q --upgrade pip wheel
+  "$td/.venv/bin/pip" install -q -r "$HERE/tts/requirements.txt"
+  cp "$HERE/tts/server.py" "$HERE/tts/run-server.sh" "$td/"
+  if [[ ! -f "$td/.env" ]]; then cp "$HERE/tts/.env.example" "$td/.env"; echo "~/tts/.env aus Vorlage angelegt"; fi
+  chmod 600 "$td/.env"
+  echo "tts bereit in $td (Start: $td/run-server.sh  |  reboot-fest: sudo bash $HERE/tts/install-service-root.sh)"
+
   say "systemd user units"
   mkdir -p ~/.config/systemd/user
   sed "s#%XAPIENT_DIR%#$HERE#g" "$HERE/systemd/xapient.service" > ~/.config/systemd/user/xapient.service
   [[ -x /usr/local/bin/signal-cli ]] && cp "$HERE/systemd/signal-cli.service" ~/.config/systemd/user/
+  cp "$HERE/systemd/xapient-tts.service" ~/.config/systemd/user/  # lokaler sprachdienst
   export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"  # needed after sudo -iu
   systemctl --user daemon-reload
 
@@ -97,14 +113,32 @@ user_part() {
   fi
   chmod 600 "$HERE/config.json"
 
+  mkdir -p "$HERE/workspace/private"
+  if [[ ! -f "$HERE/workspace/private/calendars.json" ]]; then
+    cp "$HERE/workspace/private/calendars.example.json" "$HERE/workspace/private/calendars.json"
+    echo "calendars.json aus Vorlage angelegt (echte iCal-URLs eintragen!)"
+  fi
+
+  say "setup-check (was noch fehlt)"
+  local miss=0
+  grep -q '123456:ABC' "$HERE/config.json" 2>/dev/null && { echo "  [ ] telegram.token in config.json (noch Platzhalter)"; miss=1; }
+  grep -q '"123456789"' "$HERE/config.json" 2>/dev/null && { echo "  [ ] owners in config.json (noch Platzhalter)"; miss=1; }
+  grep -q 'DEINE-SCHULE\|DEINE-ADRESSE' "$HERE/workspace/private/calendars.json" 2>/dev/null && { echo "  [ ] echte iCal-URLs in workspace/private/calendars.json (Morgen-Brief)"; miss=1; }
+  [[ -f "$HOME/whisper.cpp/models/ggml-small.bin" ]] || { echo "  [ ] whisper-modell (Spracheingabe) fehlt"; miss=1; }
+  [[ "$miss" == 0 ]] && echo "  alles gesetzt."
+
   cat <<EOF
 
 Nächste Schritte (als $(whoami)):
   1. claude                                    # einmal einloggen
   2. telegram: @BotFather -> /newbot -> token; eigene user-id via @userinfobot
   3. nano $HERE/config.json                    # telegram.token, owners, claude.addDirs
-  4. systemctl --user enable --now xapient
+  4. nano $HERE/workspace/private/calendars.json   # eigene iCal-URLs (Stundenplan/Privat) + Ort fürs Wetter
+  5. systemctl --user enable --now xapient xapient-tts
      journalctl --user -fu xapient
+  Hinweis Sprache: Standardstimme 'anna' (keine Anmeldung). Eigene Stimme (/stimme) braucht
+  einen HuggingFace-Token in ~/tts/.env + akzeptierte Terms auf huggingface.co/kyutai/pocket-tts.
+  In einer systemd-Sandbox ohne User-Bus statt (5): sudo bash $HERE/tts/install-service-root.sh
 EOF
 }
 

@@ -32,6 +32,12 @@
     "threads": 4,
     "timeoutSec": 180
   },
+  "tts": {
+    "url": "http://127.0.0.1:8765",
+    "enabled": true,
+    "timeoutMs": 90000,
+    "maxChars": 600
+  },
   "heartbeatSec": 1800,
   "stateFile": "state.json"
 }

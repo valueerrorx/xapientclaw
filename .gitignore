@@ -8,5 +8,15 @@ workspace/.heartbeat-status
 workspace/USER.md
 workspace/memory/
 
-# Kalender-URLs (geheim): getrennt, gitignored
-workspace/private/
+# Kalender-URLs (geheim): getrennt, gitignored — nur die Vorlage kommt ins Repo
+workspace/private/*
+!workspace/private/calendars.example.json
+
+# TTS-Runtime/Secrets (falls im Repo-tts/ erzeugt): nie committen
+tts/.env
+tts/.venv/
+tts/__pycache__/
+tts/voices/
+tts/models/
+tts/*.ogg
+tts/*.wav

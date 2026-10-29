@@ -109,6 +109,19 @@ channel.send(owner, usePersistent
 // Log whether the voice service is reachable (non-blocking; voice stays optional).
 if (tts.enabled) tts.health().then(ok => log(`tts service ${ok ? 'reachable' : 'NOT reachable'} at ${tts.url} (mode=${state.voiceMode || 'auto'})`));
 
+// First-run helper: on boot, tell the owner which optional features still need setup.
+// Stays quiet once everything is in place (only messages when something is missing).
+(async () => {
+  const warn = [];
+  const calFile = `${cfg.claude.workspace}/private/calendars.json`;
+  let cal = '';
+  try { cal = fs.readFileSync(calFile, 'utf8'); } catch {}
+  if (!cal || /DEINE-SCHULE|DEINE-ADRESSE/.test(cal)) warn.push('• Kalender: workspace/private/calendars.json mit echten iCal-URLs füllen (Morgen-Brief)');
+  if (cfg.transcription?.enabled && cfg.transcription.model && !fs.existsSync(cfg.transcription.model)) warn.push('• Spracheingabe: whisper-Modell fehlt (install-debian.sh)');
+  if (tts.enabled && !(await tts.health())) warn.push('• Sprachausgabe: TTS-Dienst nicht erreichbar — starten (~/tts/run-server.sh oder xapient-tts.service)');
+  if (warn.length) channel.send(owner, `🔧 Setup-Hinweis — noch offen:\n${warn.join('\n')}`).catch(() => {});
+})();
+
 // Decide whether a reply should also be spoken. Only for interactive chat (not cron),
 // and only via a channel that can send voice. Mode: aus=never, an=always, auto=only if
 // the incoming message was itself a voice note.

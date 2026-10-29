@@ -1,6 +1,6 @@
 # xapient
 
-Minimaler, selbst gehosteter Agent: **Telegram (oder Signal) ↔ Claude Code Master-Agent**, mit Cron-Jobs, Memory und Zugriff auf deine Repos. Läuft ohne npm-Dependencies, nur mit Node ≥ 20.
+Minimaler, selbst gehosteter Agent: **Telegram (oder Signal) ↔ Claude Code Master-Agent**, mit Cron-Jobs, Memory und Zugriff auf deine Repos. Node ≥ 20, eine npm-Dependency (`node-ical` für den Morgen-Brief). Spracheingabe über whisper.cpp, Sprachausgabe über einen lokalen pocket-tts-Dienst (CPU, keine Cloud).
 
 ```
 Telegram-App ──► Bot API (long polling)        [oder: signal-cli daemon]
@@ -29,9 +29,9 @@ claude                                                        # einmal einloggen
 2. Mit `/setjoingroups` → Disable verhinderst du, dass der Bot in Gruppen hinzugefügt werden kann.
 3. Deine **User-ID** bekommst du von **@userinfobot**. Das ist eine Zahl, deine Telefonnummer wird nicht verwendet.
 4. In `config.json` trägst du `telegram.token` und `owners: ["<deine-id>"]` ein.
-5. Starten:
+5. Starten (Gateway + Sprachdienst):
 ```bash
-systemctl --user enable --now xapient
+systemctl --user enable --now xapient xapient-tts
 journalctl --user -fu xapient
 ```
 6. Den Bot in Telegram öffnen, `/start` drücken und dann `/status` senden.
@@ -55,6 +55,22 @@ sudo WITH_SIGNAL=1 /home/xapient/xapient/install-debian.sh xapient
 systemctl --user enable --now signal-cli xapient
 ```
 
+### Morgen-Brief / Kalender (optional)
+Täglicher „Guten-Morgen"-Brief (07:00) mit Wetter + Terminen. iCal-URLs kommen in
+`workspace/private/calendars.json` (gitignored). Vorlage: `workspace/private/calendars.example.json`
+kopieren, echte URLs (WebUntis-Stundenplan, Google privat) + Ort fürs Wetter eintragen.
+
+### Stimme / Sprachausgabe (optional)
+Lokaler TTS-Dienst (`tts/`, pocket-tts) auf `127.0.0.1:8765`. Standardstimme `anna` (weibliche
+Katalogstimme, keine Anmeldung). Steuerung im Chat: `/voice an|aus|auto`.
+- `an` = jede Antwort zusätzlich als Sprachnachricht, `aus` = nur Text,
+  `auto` (Standard) = Sprache nur, wenn du selbst eine Sprachnachricht schickst.
+- Der Antworttext geht immer sofort raus; die Stimme kommt separat (ein TTS-Ausfall blockiert nie).
+- Reboot-fest in einer systemd-Sandbox ohne User-Bus: `sudo bash tts/install-service-root.sh`.
+- Eigene Stimme klonen (`/stimme`, geplant) braucht einen HuggingFace-Token in `~/tts/.env`
+  + akzeptierte Terms auf `huggingface.co/kyutai/pocket-tts`; für Katalogstimmen nicht nötig.
+Details: `tts/README.md`.
+
 ## Config
 | Key | Bedeutung |
 |---|---|
@@ -64,9 +80,10 @@ systemctl --user enable --now signal-cli xapient
 | `http.token` | Shared Secret für `/send` und `/inject` (nur localhost) |
 | `claude.addDirs` | Repo-Verzeichnisse, auf die der Agent zugreifen darf |
 | `claude.maxTurns` / `timeoutMin` | Limits pro Auftrag |
+| `tts` | Lokaler Sprachdienst: `url`, `enabled`, `timeoutMs`, `maxChars` (Defaults greifen auch ohne Eintrag) |
 
 ## Befehle im Chat
-`/status` · `/new` (neue Session) · `/stop` (Abbruch + Queue leeren) · `/help`
+`/status` · `/new` (neue Session) · `/stop` (Abbruch + Queue leeren) · `/voice an\|aus\|auto` (Sprachantworten) · `/help`
 
 ## Konventionen
 - Eingehende Prompts sind mit `[telegram …]`, `[signal …]` oder `[cron:NAME …]` markiert.
@@ -83,7 +100,9 @@ systemctl --user enable --now signal-cli xapient
 - Prompt Injection über Web- oder Repo-Inhalte bleibt das Hauptrisiko.
 
 ## Erweiterungsideen
-- Sprachnachrichten mit whisper.cpp transkribieren (Hook in `onMessage`)
+- Eigene Stimme per `/stimme` einlernen (pocket-tts Voice-Cloning, HuggingFace-Token)
 - Dateien zurückschicken (`sendDocument` / signal `attachments`) plus `xapient-send --file`
 - Getrennte Sessions pro Cron-Job
 - MCP-Server (Home Assistant, Nextcloud) über `workspace/.mcp.json`
+
+Umgesetzt: Spracheingabe (whisper.cpp) · Sprachausgabe (`/voice`, pocket-tts) · Morgen-Brief (Kalender+Wetter) · detached Langzeit-Jobs (`xapient-job`).

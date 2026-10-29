@@ -1,4 +1,5 @@
 {
   "dream": "17 3 * * *",
-  "jobwatch": "*/30 * * * *"
+  "jobwatch": "*/30 * * * *",
+  "morningbrief": "0 7 * * *"
 }

@@ -7,3 +7,6 @@ workspace/.heartbeat-status
 # Echtes Memory (Systemdetails, Vorhaben) bleibt lokal, nicht ins Repo:
 workspace/USER.md
 workspace/memory/
+
+# Kalender-URLs (geheim): getrennt, gitignored
+workspace/private/

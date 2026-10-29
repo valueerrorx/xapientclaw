@@ -1,0 +1,86 @@
+#!/usr/bin/env node
+// xapient-calbrief — prints today's agenda from the ICS feeds in
+// workspace/private/calendars.json (gitignored). Europe/Vienna, incl. recurring
+// events. Best-effort per feed: a failing feed is noted, never crashes the rest.
+// Output is plain text for the morning-brief cron to wrap into a message.
+import ical from 'node-ical';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const cfgPath = join(ROOT, 'workspace/private/calendars.json');
+
+let cfg;
+try { cfg = JSON.parse(readFileSync(cfgPath, 'utf8')); }
+catch (e) { console.error(`[calbrief] config missing/unreadable: ${e.message}`); process.exit(2); }
+
+const TZ = cfg.tz || 'Europe/Vienna';
+const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
+const timeFmt = new Intl.DateTimeFormat('de-AT', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
+const weekdayFmt = new Intl.DateTimeFormat('de-AT', { timeZone: TZ, weekday: 'long', day: '2-digit', month: '2-digit' });
+
+const now = new Date();
+const today = dayFmt.format(now);                 // YYYY-MM-DD in Vienna
+const viennaDate = (d) => dayFmt.format(d);
+const WINDOW = 36 * 3600 * 1000;                  // generous UTC window for rrule, tz-safe
+
+function occDurationMs(ev) {
+  if (ev.start && ev.end) return ev.end - ev.start;
+  return 0;
+}
+
+function collectFromEvent(ev, label, out) {
+  if (!ev || ev.type !== 'VEVENT' || !ev.start) return;
+  const allDay = ev.datetype === 'date';
+  const summary = (ev.summary || '(ohne Titel)').toString().replace(/\s+/g, ' ').trim();
+
+  if (ev.rrule) {
+    const occs = ev.rrule.between(new Date(now - WINDOW), new Date(+now + WINDOW), true);
+    const dur = occDurationMs(ev);
+    for (const occ of occs) {
+      // skip cancelled/exdate occurrences
+      const key = occ.toISOString().slice(0, 10);
+      if (ev.exdate && (ev.exdate[key] || ev.exdate[occ.toISOString()])) continue;
+      // honour a moved/overridden instance
+      const override = ev.recurrences && (ev.recurrences[key] || ev.recurrences[occ.toISOString().slice(0,10)]);
+      const start = override?.start || occ;
+      if (viennaDate(start) !== today) continue;
+      const end = override?.end || new Date(+start + dur);
+      out.push({ start, end, allDay: (override?.datetype || ev.datetype) === 'date', summary: (override?.summary || summary), label });
+    }
+    return;
+  }
+
+  // non-recurring
+  if (allDay) {
+    // all-day may span multiple days: [start, end) as dates
+    const endDate = ev.end ? viennaDate(new Date(+ev.end - 1)) : viennaDate(ev.start);
+    if (viennaDate(ev.start) <= today && today <= endDate) {
+      out.push({ start: ev.start, end: ev.end, allDay: true, summary, label });
+    }
+  } else if (viennaDate(ev.start) === today) {
+    out.push({ start: ev.start, end: ev.end, allDay: false, summary, label });
+  }
+}
+
+const events = [];
+const errors = [];
+for (const cal of cfg.calendars || []) {
+  try {
+    const data = await ical.async.fromURL(cal.url);
+    for (const ev of Object.values(data)) collectFromEvent(ev, cal.label, events);
+  } catch (e) {
+    errors.push(`${cal.label}: ${e.message}`);
+  }
+}
+
+events.sort((a, b) => (a.allDay === b.allDay ? a.start - b.start : (a.allDay ? -1 : 1)));
+
+console.log(`AGENDA ${weekdayFmt.format(now)} (${TZ})`);
+if (!events.length) console.log('  (keine Termine heute)');
+for (const e of events) {
+  const when = e.allDay ? 'ganztägig' : `${timeFmt.format(e.start)}${e.end ? '–' + timeFmt.format(e.end) : ''}`;
+  console.log(`  ${when}  ${e.summary}  [${e.label}]`);
+}
+for (const err of errors) console.log(`  !! Feed-Fehler ${err}`);

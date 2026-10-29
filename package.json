@@ -4,8 +4,13 @@
   "description": "Signal gateway for a Claude Code master agent",
   "type": "module",
   "private": true,
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node src/gateway.js"
+  },
+  "dependencies": {
+    "node-ical": "^0.27.3"
   }
 }

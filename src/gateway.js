@@ -9,11 +9,13 @@ import { runClaude } from './claude.js';
 import { createSession } from './session.js';
 import { startScheduler } from './scheduler.js';
 import { createTranscriber } from './transcribe.js';
+import { createTts } from './tts.js';
 
 const cfg = loadConfig();
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 const channel = cfg.channel === 'signal' ? createSignal(cfg.signal, log) : createTelegram(cfg.telegram, log);
 const transcriber = createTranscriber(cfg.transcription, log);
+const tts = createTts(cfg, log);
 const owners = cfg.owners.map(String);
 const owner = owners[0];  // primary recipient for agent/cron messages
 
@@ -104,7 +106,31 @@ channel.send(owner, usePersistent
   : '♻️ xapient neu gestartet — 🟡 per-turn (-p)'
 ).catch(() => {});
 
-async function ask(prompt, origin, to = owner) {
+// Log whether the voice service is reachable (non-blocking; voice stays optional).
+if (tts.enabled) tts.health().then(ok => log(`tts service ${ok ? 'reachable' : 'NOT reachable'} at ${tts.url} (mode=${state.voiceMode || 'auto'})`));
+
+// Decide whether a reply should also be spoken. Only for interactive chat (not cron),
+// and only via a channel that can send voice. Mode: aus=never, an=always, auto=only if
+// the incoming message was itself a voice note.
+function wantsVoice(origin, inboundVoice) {
+  if (!tts.enabled || typeof channel.sendVoice !== 'function') return false;
+  if (origin !== channel.name) return false;
+  const mode = state.voiceMode || 'auto';
+  if (mode === 'aus') return false;
+  if (mode === 'an') return true;
+  return !!inboundVoice;
+}
+
+// Fire-and-forget: the text reply already went out; synth+send voice separately so a
+// slow or failing TTS can never block or break the actual answer.
+function maybeSpeak(to, text, origin, inboundVoice) {
+  if (!wantsVoice(origin, inboundVoice)) return;
+  tts.synth(text)
+    .then(ogg => ogg && channel.sendVoice(to, ogg))
+    .catch(e => log('tts failed', e.message));
+}
+
+async function ask(prompt, origin, to = owner, opts = {}) {
   const interactive = !origin.startsWith('cron');  // cron replies are NOOP-silent -> no heartbeat
   const started = Date.now();
   try { fs.unlinkSync(STATUS_FILE); } catch {}  // drop stale status from a previous job
@@ -127,7 +153,10 @@ async function ask(prompt, origin, to = owner) {
     if (res.sessionId) { state.sessionId = res.sessionId; saveState(); }
     log(`done [${origin}] turns=${res.turns} cost=${res.cost ?? '-'}`);
     const text = res.text.trim();
-    if (text && text !== 'NOOP') await channel.send(to, text);  // NOOP = agent stays silent
+    if (text && text !== 'NOOP') {  // NOOP = agent stays silent
+      await channel.send(to, text);
+      maybeSpeak(to, text, origin, opts.inboundVoice);
+    }
   } catch (e) {
     log('ask failed', e.message);
     await channel.send(to, `⚠️ ${e.message}`.slice(0, 1500)).catch(() => {});
@@ -142,8 +171,15 @@ async function ask(prompt, origin, to = owner) {
 // --- chat commands ---
 const commands = {
   '/start': () => 'xapient bereit. /help für Befehle.',
-  '/help': () => '/new – neue Session\n/stop – laufenden Job abbrechen + Queue leeren\n/status – Status',
+  '/help': () => '/new – neue Session\n/stop – laufenden Job abbrechen + Queue leeren\n/status – Status\n/voice an|aus|auto – Sprachantworten',
   '/new': () => { state.sessionId = null; saveState(); session?.reset(); return '🆕 Neue Session beim nächsten Auftrag.'; },
+  '/voice': (arg) => {
+    const m = (arg || '').trim().toLowerCase();
+    if (!['an', 'aus', 'auto'].includes(m)) return `🔊 Sprachmodus: <b>${state.voiceMode || 'auto'}</b>.\nNutze /voice an | aus | auto.`;
+    state.voiceMode = m; saveState();
+    const desc = m === 'an' ? 'immer zusätzlich Sprache' : m === 'aus' ? 'nur Text' : 'Sprache nur, wenn du mir eine Sprachnachricht schickst';
+    return `🔊 Sprachmodus: <b>${m}</b> (${desc}).`;
+  },
   '/stop': () => {
     queue.length = 0;
     if (!current) return 'Nichts läuft.';
@@ -154,6 +190,7 @@ const commands = {
     `Session: ${state.sessionId ?? '–'}`,
     `Läuft: ${current ? `${current.origin} seit ${Math.round((Date.now() - current.started) / 1000)}s` : 'nein'}`,
     `Queue: ${queue.length}`,
+    `Sprachmodus: ${state.voiceMode || 'auto'}`,
   ].join('\n'),
 };
 
@@ -164,14 +201,15 @@ function attachmentLines(atts = []) {
 async function onMessage(msg) {
   const text = msg.text.trim();
   const cmd = commands[text.split(/\s/)[0].toLowerCase().replace(/@\w+$/, '')];  // strip telegram /cmd@botname
-  if (cmd) return channel.send(msg.from, cmd());
+  if (cmd) return channel.send(msg.from, cmd(text.slice(text.split(/\s/)[0].length).trim()));  // pass args after the command
   const { transcripts, rest } = await transcriber.process(msg.attachments);  // voice/audio -> text, rest passed as attachment
   const body = [text, ...transcripts, ...attachmentLines(rest)].filter(Boolean).join('\n');
   if (!body) return;
   log(`${channel.name} message`, body.slice(0, 80));
   const ack = busy ? `message received! in queue (#${queue.length + 1})` : 'message received! working...';
   channel.send(msg.from, ack).catch(() => {});  // immediate receipt confirmation
-  enqueue(() => ask(`[${channel.name} ${stamp()}] ${body}`, channel.name, msg.from));
+  const inboundVoice = transcripts.length > 0;  // incoming was a voice/audio note -> 'auto' mode speaks back
+  enqueue(() => ask(`[${channel.name} ${stamp()}] ${body}`, channel.name, msg.from, { inboundVoice }));
 }
 
 // --- local http api: /send (agent -> you), /inject (cron -> agent) ---

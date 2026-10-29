@@ -44,6 +44,18 @@ export function createTelegram({ token, inboxDir, apiUrl = 'https://api.telegram
 
   const typing = (to, stop = false) => stop ? Promise.resolve() : call('sendChatAction', { chat_id: to, action: 'typing' });
 
+  // Send an OGG/Opus buffer as a voice note (multipart upload).
+  async function sendVoice(to, oggBuffer, caption) {
+    const fd = new FormData();
+    fd.append('chat_id', String(to));
+    if (caption) fd.append('caption', caption);
+    fd.append('voice', new Blob([oggBuffer], { type: 'audio/ogg' }), 'voice.ogg');
+    const res = await fetch(`${api}/sendVoice`, { method: 'POST', body: fd });
+    const json = await res.json().catch(() => ({}));
+    if (!json.ok) throw new Error(`telegram sendVoice: ${json.description ?? res.status}`);
+    return json.result;
+  }
+
   async function download(fileId, name) {
     const f = await call('getFile', { file_id: fileId });
     const res = await fetch(`${apiUrl}/file/bot${token}/${f.file_path}`);
@@ -90,5 +102,5 @@ export function createTelegram({ token, inboxDir, apiUrl = 'https://api.telegram
     }
   }
 
-  return { name: 'telegram', send, typing, typingEveryMs: 4000, listen };
+  return { name: 'telegram', send, sendVoice, typing, typingEveryMs: 4000, listen };
 }

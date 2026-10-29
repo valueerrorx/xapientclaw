@@ -4,8 +4,11 @@ Führe das Tool `xapient-calbrief` aus (Shell). Es gibt die heutigen Termine gru
 - Gruppe `[Stundenplan]`: `HH:MM-HH:MM  Fach <X>  [Klasse <Y>]  [Raum <Z>]`
 - Gruppe `[Privat]` (und andere): `HH:MM-HH:MM  <Titel>` bzw. `ganztägig  <Titel>`
 
+Die erste Ausgabezeile `WETTER <Ort>: <min>–<max>°C, <Lage>, Regen <p>%` ist das heutige Wetter (fehlt/`!!`-markiert, wenn nicht abrufbar).
+
 Verfasse daraus eine kurze Guten-Morgen-Nachricht auf österreichischem Deutsch (Telegram-HTML, handytauglich):
 - Kurze Begrüßung mit Wochentag/Datum.
+- Ein lockerer <b>Wettersatz</b> aus der WETTER-Zeile: Temperatur + Sonne/Regen, mit einem kleinen passenden Tipp (z. B. bei hoher Regenwahrscheinlichkeit „Schirm einpacken", bei Kälte „zieh dich warm an", bei Sonne gern positiv). Wenn Wetter nicht abrufbar, einfach weglassen.
 - <b>Stundenplan</b>: falls Einträge da sind, als kompakte Monospace-Tabelle in einem <pre>-Block mit Spalten Zeit | Fach | Klasse | Raum (ausgerichtet). Fächer/Klassen/Räume so übernehmen wie vom Tool geliefert.
 - <b>Privat/sonstige Termine</b>: schön in Prosa formuliert (Uhrzeit + Titel, ganztägige zuerst).
 - Keine Termine: lockerer Einzeiler (z. B. an schulfreien Tagen „kein Unterricht", sonst „heute nix im Kalender").

@@ -24,6 +24,22 @@ const today = dayFmt.format(now);
 const viennaDate = (d) => dayFmt.format(d);
 const WINDOW = 36 * 3600 * 1000;
 
+// WMO weather code -> short German text.
+function wmoText(c) {
+  if (c == null) return '';
+  if (c === 0) return 'klar';
+  if (c <= 2) return 'leicht bewölkt';
+  if (c === 3) return 'bewölkt';
+  if (c === 45 || c === 48) return 'Nebel';
+  if (c >= 51 && c <= 57) return 'Niesel';
+  if (c >= 61 && c <= 67) return 'Regen';
+  if (c >= 71 && c <= 77) return 'Schnee';
+  if (c >= 80 && c <= 82) return 'Regenschauer';
+  if (c === 85 || c === 86) return 'Schneeschauer';
+  if (c >= 95) return 'Gewitter';
+  return 'wechselhaft';
+}
+
 // Klasse = description without the trailing teacher token (e.g. "3A WEI" -> "3A", "WEI" -> "").
 function parseKlasse(desc) {
   const s = (desc || '').toString().replace(/\s+/g, ' ').trim();
@@ -71,6 +87,21 @@ for (const cal of cfg.calendars || []) {
     const data = await ical.async.fromURL(cal.url);
     for (const ev of Object.values(data)) collect(ev, cal, byLabel.get(cal.label).items);
   } catch (e) { errors.push(`${cal.label}: ${e.message}`); }
+}
+
+// ── Weather (Open-Meteo, no key, best-effort) ──────────────────────────────────
+if (cfg.weather && cfg.weather.lat != null && cfg.weather.lon != null) {
+  try {
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${cfg.weather.lat}&longitude=${cfg.weather.lon}`
+      + `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weathercode`
+      + `&timezone=${encodeURIComponent(TZ)}&forecast_days=1`;
+    const d = (await (await fetch(u)).json()).daily;
+    const tmin = Math.round(d.temperature_2m_min[0]);
+    const tmax = Math.round(d.temperature_2m_max[0]);
+    const pop = d.precipitation_probability_max?.[0];
+    console.log(`WETTER ${cfg.weather.name || ''}: ${tmin}–${tmax}°C, ${wmoText(d.weathercode?.[0])}`
+      + (pop != null ? `, Regen ${pop}%` : ''));
+  } catch (e) { console.log(`WETTER !! nicht erreichbar (${e.message})`); }
 }
 
 console.log(`AGENDA ${weekdayFmt.format(now)} (${TZ})`);

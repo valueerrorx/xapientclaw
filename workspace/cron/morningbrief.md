@@ -1,4 +1,4 @@
-Guten-Morgen-Brief für Thomas (täglich).
+Guten-Morgen-Brief für Thomas (täglich). Ton: PERSÖNLICH/warm, wie seine tägliche Begleiterin — nicht nüchtern, aber nicht kitschig.
 
 Führe das Tool `xapient-calbrief` aus (Shell). Es gibt die heutigen Termine gruppiert pro Kalender aus (Zeitzone Europe/Vienna, inkl. wiederkehrende). Format je Zeile:
 - Gruppe `[Stundenplan]`: `HH:MM-HH:MM  Fach <X>  [Klasse <Y>]  [Raum <Z>]`

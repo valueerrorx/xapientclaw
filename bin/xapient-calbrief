@@ -1,86 +1,97 @@
 #!/usr/bin/env node
 // xapient-calbrief — prints today's agenda from the ICS feeds in
-// workspace/private/calendars.json (gitignored). Europe/Vienna, incl. recurring
-// events. Best-effort per feed: a failing feed is noted, never crashes the rest.
-// Output is plain text for the morning-brief cron to wrap into a message.
+// workspace/private/calendars.json (gitignored). Europe/Vienna, incl. recurring.
+// Grouped per calendar. For 'untis' feeds it extracts Fach(SUMMARY)/Raum(LOCATION)/
+// Klasse(DESCRIPTION minus trailing teacher code) so the morning brief can table it.
+// Best-effort per feed: a failing feed is noted, never crashes the rest.
 import ical from 'node-ical';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const cfgPath = join(ROOT, 'workspace/private/calendars.json');
-
 let cfg;
-try { cfg = JSON.parse(readFileSync(cfgPath, 'utf8')); }
+try { cfg = JSON.parse(readFileSync(join(ROOT, 'workspace/private/calendars.json'), 'utf8')); }
 catch (e) { console.error(`[calbrief] config missing/unreadable: ${e.message}`); process.exit(2); }
 
 const TZ = cfg.tz || 'Europe/Vienna';
 const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
 const timeFmt = new Intl.DateTimeFormat('de-AT', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
-const weekdayFmt = new Intl.DateTimeFormat('de-AT', { timeZone: TZ, weekday: 'long', day: '2-digit', month: '2-digit' });
+const weekdayFmt = new Intl.DateTimeFormat('de-AT', { timeZone: TZ, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
 
 const now = new Date();
-const today = dayFmt.format(now);                 // YYYY-MM-DD in Vienna
+const today = dayFmt.format(now);
 const viennaDate = (d) => dayFmt.format(d);
-const WINDOW = 36 * 3600 * 1000;                  // generous UTC window for rrule, tz-safe
+const WINDOW = 36 * 3600 * 1000;
 
-function occDurationMs(ev) {
-  if (ev.start && ev.end) return ev.end - ev.start;
-  return 0;
+// Klasse = description without the trailing teacher token (e.g. "3A WEI" -> "3A", "WEI" -> "").
+function parseKlasse(desc) {
+  const s = (desc || '').toString().replace(/\s+/g, ' ').trim();
+  if (!s) return '';
+  const parts = s.split(' ');
+  if (parts.length <= 1) return '';           // only a teacher code, no class
+  return parts.slice(0, -1).join(' ');
 }
 
-function collectFromEvent(ev, label, out) {
+function collect(ev, cal, out) {
   if (!ev || ev.type !== 'VEVENT' || !ev.start) return;
-  const allDay = ev.datetype === 'date';
-  const summary = (ev.summary || '(ohne Titel)').toString().replace(/\s+/g, ' ').trim();
+  const summary = (ev.summary || '').toString().replace(/\s+/g, ' ').trim();
+  const location = (ev.location || '').toString().replace(/\s+/g, ' ').trim();
+  const base = {
+    label: cal.label, feedType: cal.type,
+    summary, location, klasse: cal.type === 'untis' ? parseKlasse(ev.description) : '',
+    allDay: ev.datetype === 'date',
+  };
+  const dur = (ev.start && ev.end) ? ev.end - ev.start : 0;
 
   if (ev.rrule) {
-    const occs = ev.rrule.between(new Date(now - WINDOW), new Date(+now + WINDOW), true);
-    const dur = occDurationMs(ev);
-    for (const occ of occs) {
-      // skip cancelled/exdate occurrences
-      const key = occ.toISOString().slice(0, 10);
-      if (ev.exdate && (ev.exdate[key] || ev.exdate[occ.toISOString()])) continue;
-      // honour a moved/overridden instance
-      const override = ev.recurrences && (ev.recurrences[key] || ev.recurrences[occ.toISOString().slice(0,10)]);
-      const start = override?.start || occ;
+    for (const occ of ev.rrule.between(new Date(now - WINDOW), new Date(+now + WINDOW), true)) {
+      const key = occ.toISOString();
+      if (ev.exdate && (ev.exdate[key] || ev.exdate[key.slice(0, 10)])) continue;
+      const ov = ev.recurrences && (ev.recurrences[key.slice(0, 10)] || ev.recurrences[key]);
+      const start = ov?.start || occ;
       if (viennaDate(start) !== today) continue;
-      const end = override?.end || new Date(+start + dur);
-      out.push({ start, end, allDay: (override?.datetype || ev.datetype) === 'date', summary: (override?.summary || summary), label });
+      out.push({ ...base, start, end: ov?.end || new Date(+start + dur), summary: (ov?.summary || summary) });
     }
     return;
   }
-
-  // non-recurring
-  if (allDay) {
-    // all-day may span multiple days: [start, end) as dates
+  if (base.allDay) {
     const endDate = ev.end ? viennaDate(new Date(+ev.end - 1)) : viennaDate(ev.start);
-    if (viennaDate(ev.start) <= today && today <= endDate) {
-      out.push({ start: ev.start, end: ev.end, allDay: true, summary, label });
-    }
+    if (viennaDate(ev.start) <= today && today <= endDate) out.push({ ...base, start: ev.start, end: ev.end });
   } else if (viennaDate(ev.start) === today) {
-    out.push({ start: ev.start, end: ev.end, allDay: false, summary, label });
+    out.push({ ...base, start: ev.start, end: ev.end });
   }
 }
 
-const events = [];
+const byLabel = new Map();
 const errors = [];
 for (const cal of cfg.calendars || []) {
+  byLabel.set(cal.label, { type: cal.type, items: [] });
   try {
     const data = await ical.async.fromURL(cal.url);
-    for (const ev of Object.values(data)) collectFromEvent(ev, cal.label, events);
-  } catch (e) {
-    errors.push(`${cal.label}: ${e.message}`);
-  }
+    for (const ev of Object.values(data)) collect(ev, cal, byLabel.get(cal.label).items);
+  } catch (e) { errors.push(`${cal.label}: ${e.message}`); }
 }
-
-events.sort((a, b) => (a.allDay === b.allDay ? a.start - b.start : (a.allDay ? -1 : 1)));
 
 console.log(`AGENDA ${weekdayFmt.format(now)} (${TZ})`);
-if (!events.length) console.log('  (keine Termine heute)');
-for (const e of events) {
-  const when = e.allDay ? 'ganztägig' : `${timeFmt.format(e.start)}${e.end ? '–' + timeFmt.format(e.end) : ''}`;
-  console.log(`  ${when}  ${e.summary}  [${e.label}]`);
+let total = 0;
+for (const [label, grp] of byLabel) {
+  grp.items.sort((a, b) => (a.allDay === b.allDay ? a.start - b.start : (a.allDay ? -1 : 1)));
+  if (!grp.items.length) continue;
+  total += grp.items.length;
+  console.log(`[${label}]`);
+  for (const e of grp.items) {
+    const when = e.allDay ? 'ganztägig' : `${timeFmt.format(e.start)}-${e.end ? timeFmt.format(e.end) : '?'}`;
+    if (e.feedType === 'untis') {
+      const fach = e.summary || e.location || '—';
+      const bits = [`Fach ${fach}`];
+      if (e.klasse) bits.push(`Klasse ${e.klasse}`);
+      if (e.location) bits.push(`Raum ${e.location}`);
+      console.log(`  ${when}  ${bits.join('  ')}`);
+    } else {
+      console.log(`  ${when}  ${e.summary || '(ohne Titel)'}${e.location ? '  @ ' + e.location : ''}`);
+    }
+  }
 }
+if (!total) console.log('  (keine Termine heute)');
 for (const err of errors) console.log(`  !! Feed-Fehler ${err}`);

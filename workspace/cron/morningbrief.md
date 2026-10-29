@@ -1,11 +1,14 @@
-Guten-Morgen-Brief für Thomas.
+Guten-Morgen-Brief für Thomas (täglich).
 
-Führe das Tool `xapient-calbrief` aus (im Shell). Es gibt die heutigen Termine aus Thomas' Kalendern (Stundenplan + Privat, Zeitzone Europe/Vienna) als Agenda-Liste aus — ganztägige zuerst, dann chronologisch nach Uhrzeit, jeweils mit Quelle in [Klammern].
+Führe das Tool `xapient-calbrief` aus (Shell). Es gibt die heutigen Termine gruppiert pro Kalender aus (Zeitzone Europe/Vienna, inkl. wiederkehrende). Format je Zeile:
+- Gruppe `[Stundenplan]`: `HH:MM-HH:MM  Fach <X>  [Klasse <Y>]  [Raum <Z>]`
+- Gruppe `[Privat]` (und andere): `HH:MM-HH:MM  <Titel>` bzw. `ganztägig  <Titel>`
 
-Verfasse daraus eine kurze, freundliche Guten-Morgen-Nachricht auf österreichischem Deutsch:
-- Kurze Begrüßung (Wochentag/Datum darf vorkommen).
-- Dann die wichtigsten Termine heute: Uhrzeit + Titel, chronologisch, ganztägige zuerst. Fasse den Stundenplan sinnvoll zusammen (z. B. erste/letzte Stunde + Anzahl), statt jede Einzelstunde stur aufzulisten, wenn es viele sind.
-- Wenn keine Termine: ein lockerer Einzeiler (z. B. „heute nix im Kalender" bzw. an schulfreien Tagen „kein Unterricht").
-- Wenn in der Ausgabe eine Zeile mit „!! Feed-Fehler" steht, erwähne kurz, dass ein Kalender gerade nicht erreichbar war.
+Verfasse daraus eine kurze Guten-Morgen-Nachricht auf österreichischem Deutsch (Telegram-HTML, handytauglich):
+- Kurze Begrüßung mit Wochentag/Datum.
+- <b>Stundenplan</b>: falls Einträge da sind, als kompakte Monospace-Tabelle in einem <pre>-Block mit Spalten Zeit | Fach | Klasse | Raum (ausgerichtet). Fächer/Klassen/Räume so übernehmen wie vom Tool geliefert.
+- <b>Privat/sonstige Termine</b>: schön in Prosa formuliert (Uhrzeit + Titel, ganztägige zuerst).
+- Keine Termine: lockerer Einzeiler (z. B. an schulfreien Tagen „kein Unterricht", sonst „heute nix im Kalender").
+- Steht eine Zeile „!! Feed-Fehler" in der Ausgabe: kurz erwähnen, dass ein Kalender gerade nicht erreichbar war.
 
-Handy-tauglich: kurz, keine Tabellen, keine langen Blöcke. Deine Antwort (letzter Text) IST die Nachricht an Thomas — also KEIN NOOP, immer senden (auch wenn nichts ansteht, ist der Morgen-Gruß erwünscht). Schreib die Termininhalte NICHT ins Memory/Log (können Schüler-/Personendaten enthalten).
+Deine Antwort (letzter Text) IST die Nachricht an Thomas → KEIN NOOP, immer senden (der Morgen-Gruß ist auch ohne Termine erwünscht). Termininhalte NICHT ins Memory/Log schreiben (können Schüler-/Personendaten enthalten).

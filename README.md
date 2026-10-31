@@ -10,7 +10,8 @@ Telegram-App ──► Bot API (long polling)        [oder: signal-cli daemon]
               (Queue, Session) ◄── POST /send  ◄── bin/xapient-send (vom Agenten)
                      │
                      ▼
-        claude -p --resume <session>  (cwd: workspace/, --add-dir /srv/data/thomas/GIT)
+    claude -p --input-format stream-json   (ein persistenter Dauerprozess, stdin offen,
+              resumt dieselbe Session · cwd: workspace/ · --add-dir /srv/data/thomas/GIT)
               CLAUDE.md · memory/ · cron/*.md · inbox/ · .claude/agents/
 ```
 
@@ -103,6 +104,5 @@ Details: `tts/README.md`.
 - Eigene Stimme per `/stimme` einlernen (pocket-tts Voice-Cloning, HuggingFace-Token)
 - Dateien zurückschicken (`sendDocument` / signal `attachments`) plus `xapient-send --file`
 - Getrennte Sessions pro Cron-Job
-- MCP-Server (Home Assistant, Nextcloud) über `workspace/.mcp.json`
 
 Umgesetzt: Spracheingabe (whisper.cpp) · Sprachausgabe (`/voice`, pocket-tts) · Morgen-Brief (Kalender+Wetter) · detached Langzeit-Jobs (`xapient-job`).

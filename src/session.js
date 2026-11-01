@@ -38,6 +38,7 @@ export function createSession(cfg, onEvent = null, initialSessionId = null) {
   function spawnChild() {
     const args = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json',
       '--verbose', '--max-turns', String(c.maxTurns ?? 150)];
+    if (c.autocompact) args.push('--autocompact', String(c.autocompact));  // Auto-compact-Fenster (Tokens) begrenzen
     if (sessionId) args.push('--resume', sessionId);
     for (const d of c.addDirs) args.push('--add-dir', d);
     if (c.model) args.push('--model', c.model);

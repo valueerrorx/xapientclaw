@@ -170,6 +170,13 @@ async function ask(prompt, origin, to = owner, opts = {}) {
       await channel.send(to, text);
       maybeSpeak(to, text, origin, opts.inboundVoice);
     }
+    // nightly: nach bestimmten Crons (z.B. dream) Session zuruecksetzen -> frischer, schlanker
+    // Kontext; laedt CLAUDE.md + @USER.md + @MEMORY.md neu (Wichtiges bleibt via Memory erhalten)
+    const resetAfter = (cfg.claude.resetAfterCron || []).map(n => `cron:${n}`);
+    if (resetAfter.includes(origin)) {
+      state.sessionId = null; saveState(); try { session?.reset(); } catch {}
+      log('session reset after', origin);
+    }
   } catch (e) {
     log('ask failed', e.message);
     await channel.send(to, `⚠️ ${e.message}`.slice(0, 1500)).catch(() => {});

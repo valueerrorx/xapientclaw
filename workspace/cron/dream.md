@@ -17,3 +17,6 @@ Regeln:
 - Widersprüche zwischen altem Vermerk und neuem Beleg zugunsten des neueren, belegten Standes auflösen. Bei echtem Zweifel lieber offenlassen/fragen als raten.
 
 Antworte exakt NOOP, außer dir fällt etwas auf, das ich wissen sollte (z. B. ein vergessenes offenes Vorhaben oder eine revidierte Annahme, die ich bestätigen sollte).
+
+## Session-Reset nach diesem Lauf (wichtig)
+Nach diesem Dream-Lauf setzt das Gateway die Session automatisch zurueck (frischer, schlanker Kontext). Stell daher sicher, dass ALLES Wichtige dauerhaft gespeichert ist (USER.md / MEMORY.md / memory/topics/). Nach dem Reset startest du mit frischem Kontext — automatisch geladen werden nur CLAUDE.md + @USER.md + @MEMORY.md; MEMORY.md ist der Index auf die topics. Was dort nicht steht, ist nach dem Reset weg. Pruefe am Ende explizit: stehen die aktuell offenen Vorhaben + der heutige Projektstand in MEMORY.md?

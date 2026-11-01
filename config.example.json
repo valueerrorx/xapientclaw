@@ -21,7 +21,10 @@
     "addDirs": ["/srv/data/thomas/GIT"],
     "model": null,
     "maxTurns": 150,
-    "timeoutMin": 45
+    "timeoutMin": 45,
+    "persistent": true,
+    "autocompact": 400000,
+    "resetAfterCron": ["dream"]
   },
   "transcription": {
     "enabled": true,

@@ -95,7 +95,18 @@ if (cfg.weather && cfg.weather.lat != null && cfg.weather.lon != null) {
     const u = `https://api.open-meteo.com/v1/forecast?latitude=${cfg.weather.lat}&longitude=${cfg.weather.lon}`
       + `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weathercode`
       + `&timezone=${encodeURIComponent(TZ)}&forecast_days=1`;
-    const d = (await (await fetch(u)).json()).daily;
+    // Open-Meteo occasionally answers with an error JSON (no `daily`) -> retry a few times.
+    let d, why = '';
+    for (let i = 0; i < 3 && !d; i++) {
+      if (i) await new Promise((r) => setTimeout(r, 5000 * i));
+      try {
+        const res = await fetch(u);
+        const j = await res.json();
+        d = j.daily;
+        if (!d) why = `HTTP ${res.status}${j.reason ? `: ${j.reason}` : ''}`;
+      } catch (e) { why = e.message; }
+    }
+    if (!d) throw new Error(why || 'keine Daten');
     const tmin = Math.round(d.temperature_2m_min[0]);
     const tmax = Math.round(d.temperature_2m_max[0]);
     const pop = d.precipitation_probability_max?.[0];

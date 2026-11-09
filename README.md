@@ -61,6 +61,15 @@ Täglicher „Guten-Morgen"-Brief (07:00) mit Wetter + Terminen. iCal-URLs komme
 `workspace/private/calendars.json` (gitignored). Vorlage: `workspace/private/calendars.example.json`
 kopieren, echte URLs (WebUntis-Stundenplan, Google privat) + Ort fürs Wetter eintragen.
 
+- **Google-URL:** Kalender-Einstellungen → Kalender wählen → „Kalender integrieren" →
+  *Privatadresse im iCal-Format* (`…/private-…/basic.ics`). Öffentliche Adresse/Einbettungs-Link
+  gehen bei privaten Kalendern nicht. Die Privatadresse ist ein Live-Feed, kein statischer Export.
+- **Reihenfolge** der Einträge = Reihenfolge im Brief (wichtigster Kalender zuerst).
+- **Geteilter Kalender (z. B. Familie):** mit `"mineSuffix": "t"` landen Termine, deren Titel mit
+  dem Wort ` t` enden (z. B. „Meeting t"), in einer eigenen Gruppe `mineLabel` (Markierung wird
+  entfernt), alles andere bleibt in `label`. Groß/klein egal; „Teller kaufen" zählt nicht.
+  Hintergrund: Google exportiert Terminfarben nicht ins iCal, daher die Titel-Markierung.
+
 ### Stimme / Sprachausgabe (optional)
 Lokaler TTS-Dienst (`tts/`, pocket-tts) auf `127.0.0.1:8765`. Standardstimme `anna` (weibliche
 Katalogstimme, keine Anmeldung). Steuerung im Chat: `/voice an|aus|auto`.

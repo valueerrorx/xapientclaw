@@ -4,6 +4,13 @@
   "weather": { "name": "Mein Ort", "lat": 46.6, "lon": 14.1 },
   "calendars": [
     {
+      "label": "Familie",
+      "type": "google",
+      "mineSuffix": "t",
+      "mineLabel": "Familie – für dich",
+      "url": "https://calendar.google.com/calendar/ical/KALENDER-ID%40group.calendar.google.com/private-DEINGEHEIMER-TOKEN/basic.ics"
+    },
+    {
       "label": "Stundenplan",
       "type": "untis",
       "url": "https://DEINE-SCHULE.webuntis.com/WebUntis/ical_export?school=...&id=...&token=..."

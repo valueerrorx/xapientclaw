@@ -33,7 +33,7 @@
     "language": "de",
     "ffmpeg": "ffmpeg",
     "threads": 4,
-    "timeoutSec": 180
+    "timeoutSec": 600
   },
   "tts": {
     "url": "http://127.0.0.1:8765",

@@ -222,8 +222,12 @@ async function onMessage(msg) {
   const text = msg.text.trim();
   const cmd = commands[text.split(/\s/)[0].toLowerCase().replace(/@\w+$/, '')];  // strip telegram /cmd@botname
   if (cmd) return channel.send(msg.from, cmd(text.slice(text.split(/\s/)[0].length).trim()));  // pass args after the command
-  const { transcripts, rest } = await transcriber.process(msg.attachments);  // voice/audio -> text, rest passed as attachment
-  const body = [text, ...transcripts, ...attachmentLines(rest)].filter(Boolean).join('\n');
+  const { transcripts, rest, failed } = await transcriber.process(msg.attachments);  // voice/audio -> text, rest passed as attachment
+  for (const f of failed) {  // tell Thomas right away, agent gets a hint line below
+    channel.send(msg.from, `⚠️ Sprachnachricht konnte nicht transkribiert werden (${f.reason}). Ich versuch's händisch – sonst bitte als Text.`).catch(() => {});
+  }
+  const sttFailed = failed.map(f => `[Transkription fehlgeschlagen: ${f.reason} – ${f.att.path}]`);
+  const body = [text, ...transcripts, ...sttFailed, ...attachmentLines(rest)].filter(Boolean).join('\n');
   if (!body) return;
   log(`${channel.name} message`, body.slice(0, 80));
   const ack = busy ? `message received! in queue (#${queue.length + 1})` : 'message received! working...';

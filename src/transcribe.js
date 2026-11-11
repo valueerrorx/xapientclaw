@@ -11,14 +11,15 @@ const AUDIO_EXT = /\.(ogg|oga|opus|mp3|m4a|aac|wav|flac|amr|webm|wma)$/i;
 function run(bin, args, timeoutMs) {
   return new Promise((resolve, reject) => {
     const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-    let out = '', err = '';
-    const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);
+    let out = '', err = '', timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; child.kill('SIGKILL'); }, timeoutMs);
     child.stdout.on('data', d => { out += d; });
     child.stderr.on('data', d => { err += d; });
     child.on('error', e => { clearTimeout(timer); reject(e); });
     child.on('close', code => {
       clearTimeout(timer);
       if (code === 0) resolve(out);
+      else if (timedOut) reject(new Error(`Timeout nach ${Math.round(timeoutMs / 1000)} s (${path.basename(bin)})`));
       else reject(new Error(`${path.basename(bin)} exit ${code}: ${err.trim().slice(-300)}`));
     });
   });
@@ -31,7 +32,7 @@ export function createTranscriber(cfg = {}, log = () => {}) {
   const ffmpeg = cfg.ffmpeg ?? 'ffmpeg';
   const language = cfg.language ?? 'de';
   const threads = cfg.threads ?? 4;
-  const timeoutMs = (cfg.timeoutSec ?? 180) * 1000;
+  const timeoutMs = (cfg.timeoutSec ?? 600) * 1000;
   const ready = enabled && !!whisper && !!model && fs.existsSync(whisper) && fs.existsSync(model);
   if (enabled && !ready) log('transcribe: disabled (whisper-cli or model not found) – audio passed through');
   else if (ready) log(`transcribe: ready (${path.basename(model)}, lang=${language})`);
@@ -58,20 +59,21 @@ export function createTranscriber(cfg = {}, log = () => {}) {
     }
   }
 
-  // -> { transcripts: string[], rest: attachment[] }  (rest = non-audio + anything that failed)
+  // -> { transcripts: string[], rest: attachment[], failed: {att, reason}[] }  (rest = non-audio + anything that failed)
   async function process(attachments = []) {
-    const transcripts = [], rest = [];
+    const transcripts = [], rest = [], failed = [];
     for (const att of attachments) {
       if (ready && isAudio(att)) {
         try {
           const t = await transcribe(att);
           if (t) { log('transcribe: ok', JSON.stringify(t.slice(0, 60))); transcripts.push(t); continue; }
           log('transcribe: empty result, passing original');
-        } catch (e) { log('transcribe: failed, passing original –', e.message); }
+          failed.push({ att, reason: 'leeres Ergebnis' });
+        } catch (e) { log('transcribe: failed, passing original –', e.message); failed.push({ att, reason: e.message }); }
       }
       rest.push(att);
     }
-    return { transcripts, rest };
+    return { transcripts, rest, failed };
   }
 
   return { ready, isAudio, transcribe, process };

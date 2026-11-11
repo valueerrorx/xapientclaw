@@ -20,3 +20,4 @@ tts/voices/
 tts/models/
 tts/*.ogg
 tts/*.wav
+config.json.bak*

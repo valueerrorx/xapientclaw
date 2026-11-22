@@ -56,6 +56,67 @@ export function createTelegram({ token, inboxDir, apiUrl = 'https://api.telegram
     return json.result;
   }
 
+  // Multipart call; caption goes as HTML first, plain on failure (like send()).
+  async function upload(method, fields, files) {
+    const post = async html => {
+      const fd = new FormData();
+      for (const [k, v] of Object.entries(fields)) {
+        if (v === undefined) continue;
+        const val = typeof v === 'function' ? v(html) : v;
+        fd.append(k, typeof val === 'string' ? val : JSON.stringify(val));
+      }
+      if (html && fields.caption) fd.append('parse_mode', 'HTML');
+      for (const f of files) fd.append(f.field, new Blob([fs.readFileSync(f.path)]), path.basename(f.path));
+      const res = await fetch(`${api}/${method}`, { method: 'POST', body: fd });
+      const json = await res.json().catch(() => ({}));
+      if (!json.ok) throw new Error(`telegram ${method}: ${json.description ?? res.status}`);
+      return json.result;
+    };
+    const hasCaption = fields.caption || fields.media?.(true)?.some(m => m.caption);
+    if (!hasCaption) return post(false);
+    try { return await post(true); } catch { return post(false); }
+  }
+
+  // Photo if telegram accepts it (<=10 MB, w+h<=10000, ratio<=20), else document.
+  function photoOk(file) {
+    if (fs.statSync(file).size > 10 * 1024 * 1024) return false;
+    const d = imageSize(file);
+    if (!d) return /\.(jpe?g|png|webp)$/i.test(file);  // unknown dims: let telegram decide
+    return d.w + d.h <= 10000 && Math.max(d.w, d.h) / Math.min(d.w, d.h) <= 20;
+  }
+
+  // One group = 1 file (sendPhoto/sendDocument) or 2..10 (sendMediaGroup).
+  async function sendGroup(to, type, group, caption) {
+    if (group.length === 1) {
+      const method = type === 'photo' ? 'sendPhoto' : 'sendDocument';
+      return upload(method, { chat_id: String(to), caption }, [{ field: type, path: group[0] }]);
+    }
+    const media = html => group.map((p, i) => ({
+      type, media: `attach://f${i}`,
+      ...(i === 0 && caption ? { caption, ...(html ? { parse_mode: 'HTML' } : {}) } : {}),
+    }));
+    return upload('sendMediaGroup', { chat_id: String(to), media }, group.map((p, i) => ({ field: `f${i}`, path: p })));
+  }
+
+  // Send images: photos as albums of 10, oversize ones as documents; caption on the first message.
+  async function sendPhotos(to, paths, caption) {
+    if (caption && caption.length > 1024) { await send(to, caption); caption = undefined; }  // caption limit
+    const photos = paths.filter(photoOk);
+    const docs = paths.filter(p => !photos.includes(p));
+    const groups = [];
+    for (const [type, list] of [['photo', photos], ['document', docs]])
+      for (let i = 0; i < list.length; i += 10) groups.push([type, list.slice(i, i + 10)]);
+    for (const [type, group] of groups) {
+      try { await sendGroup(to, type, group, caption); }
+      catch (e) {
+        if (type !== 'photo') throw e;
+        log('telegram: photo rejected, sending as document:', e.message);
+        await sendGroup(to, 'document', group, caption);
+      }
+      caption = undefined;
+    }
+  }
+
   async function download(fileId, name) {
     const f = await call('getFile', { file_id: fileId });
     const res = await fetch(`${apiUrl}/file/bot${token}/${f.file_path}`);
@@ -102,5 +163,25 @@ export function createTelegram({ token, inboxDir, apiUrl = 'https://api.telegram
     }
   }
 
-  return { name: 'telegram', send, sendVoice, typing, typingEveryMs: 4000, listen };
+  return { name: 'telegram', send, sendVoice, sendPhotos, typing, typingEveryMs: 4000, listen };
+}
+
+// Width/height from PNG or JPEG header, null if unknown.
+function imageSize(file) {
+  const fd = fs.openSync(file, 'r');
+  try {
+    const b = Buffer.alloc(64 * 1024);
+    const n = fs.readSync(fd, b, 0, b.length, 0);
+    if (n >= 24 && b.readUInt32BE(0) === 0x89504e47) return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
+    if (n >= 4 && b[0] === 0xff && b[1] === 0xd8) {
+      for (let i = 2; i + 9 < n;) {
+        if (b[i] !== 0xff) { i++; continue; }
+        const m = b[i + 1];
+        if (m >= 0xc0 && m <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(m)) return { h: b.readUInt16BE(i + 5), w: b.readUInt16BE(i + 7) };
+        if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7) || m === 0xff) { i += m === 0xff ? 1 : 2; continue; }
+        i += 2 + b.readUInt16BE(i + 2);
+      }
+    }
+    return null;
+  } finally { fs.closeSync(fd); }
 }

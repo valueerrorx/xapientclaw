@@ -35,6 +35,9 @@ export function createSignal({ rpcUrl, account, attachmentsDir }, log) {
     for (const part of chunks(text)) await rpc('send', { recipient: [to], message: part });
   }
 
+  // Images as attachments; signal-cli reads the paths itself (same machine).
+  const sendPhotos = (to, paths, caption) => rpc('send', { recipient: [to], message: caption ?? '', attachments: paths });
+
   const typing = (to, stop = false) => rpc('sendTyping', { recipient: [to], stop });
 
   function normalize(env) {
@@ -82,5 +85,5 @@ export function createSignal({ rpcUrl, account, attachmentsDir }, log) {
     }
   }
 
-  return { name: 'signal', rpc, send, typing, typingEveryMs: 10_000, listen };
+  return { name: 'signal', rpc, send, sendPhotos, typing, typingEveryMs: 10_000, listen };
 }

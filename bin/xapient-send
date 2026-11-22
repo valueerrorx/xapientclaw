@@ -1,16 +1,24 @@
 #!/usr/bin/env node
-// xapient-send "text" (or via stdin): sends a signal message to the owner
+// xapient-send "text" (or via stdin) | xapient-send --photo PATH [--photo PATH …] ["caption"]: message the owner
+import path from 'node:path';
 import { loadConfig } from '../src/config.js';
 
 const cfg = loadConfig();
-let text = process.argv.slice(2).join(' ');
-if (!text && !process.stdin.isTTY) for await (const c of process.stdin) text += c;
-if (!text.trim()) { console.error('usage: xapient-send "text"'); process.exit(1); }
+const args = process.argv.slice(2);
+const photos = [];
+for (let i = args.indexOf('--photo'); i >= 0; i = args.indexOf('--photo')) {
+  if (!args[i + 1]) { console.error('usage: xapient-send --photo PATH [--photo PATH …] ["caption"]'); process.exit(1); }
+  photos.push(path.resolve(args[i + 1]));  // gateway has another cwd
+  args.splice(i, 2);
+}
+let text = args.join(' ');
+if (!photos.length && !text && !process.stdin.isTTY) for await (const c of process.stdin) text += c;
+if (!photos.length && !text.trim()) { console.error('usage: xapient-send "text"'); process.exit(1); }
 
-const res = await fetch(`http://${cfg.http.host}:${cfg.http.port}/send`, {
+const res = await fetch(`http://${cfg.http.host}:${cfg.http.port}/${photos.length ? 'send-photo' : 'send'}`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json', 'x-xapient-token': cfg.http.token },
-  body: JSON.stringify({ text }),
+  body: JSON.stringify(photos.length ? { paths: photos, caption: text || undefined } : { text }),
 });
 if (!res.ok) { console.error(await res.text()); process.exit(1); }
 console.log('sent');

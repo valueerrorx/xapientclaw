@@ -2,6 +2,7 @@
 // xapient gateway: chat channel (telegram|signal) <-> claude code master agent, plus local http for cron/agent
 import fs from 'node:fs';
 import http from 'node:http';
+import path from 'node:path';
 import { loadConfig } from './config.js';
 import { createSignal } from './signal.js';
 import { createTelegram } from './telegram.js';
@@ -250,6 +251,8 @@ function inject(name, prompt) {
   enqueue(() => ask(`[cron:${name} ${stamp()}] ${prompt}`, `cron:${name}`));
 }
 
+const PHOTO_ROOTS = ['/home/xapient', '/srv/data/thomas/GIT'];  // only these may be sent via /send-photo
+
 const server = http.createServer(async (req, res) => {
   const reply = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
   if (req.headers['x-xapient-token'] !== cfg.http.token) return reply(401, { error: 'unauthorized' });
@@ -259,6 +262,21 @@ const server = http.createServer(async (req, res) => {
       if (!body.text) return reply(400, { error: 'text missing' });
       await channel.send(owner, String(body.text));
       return reply(200, { ok: true });
+    }
+    if (req.method === 'POST' && req.url === '/send-photo') {
+      const paths = Array.isArray(body.paths) ? body.paths.map(String) : [];
+      if (!paths.length) return reply(400, { error: 'paths missing' });
+      if (typeof channel.sendPhotos !== 'function') return reply(400, { error: `${channel.name}: photos not supported` });
+      const files = [];
+      for (const p of paths) {
+        let real;
+        try { real = fs.realpathSync(path.resolve(p)); } catch { return reply(400, { error: `not found: ${p}` }); }
+        if (!PHOTO_ROOTS.some(r => real.startsWith(r + path.sep))) return reply(403, { error: `path not allowed: ${p}` });
+        if (!fs.statSync(real).isFile()) return reply(400, { error: `not a file: ${p}` });
+        files.push(real);
+      }
+      await channel.sendPhotos(owner, files, body.caption ? String(body.caption) : undefined);
+      return reply(200, { ok: true, count: files.length });
     }
     if (req.method === 'POST' && req.url === '/inject') {
       if (!body.prompt) return reply(400, { error: 'prompt missing' });

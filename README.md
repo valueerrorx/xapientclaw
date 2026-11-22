@@ -101,6 +101,7 @@ Details: `tts/README.md`.
 - Anhänge (Dokumente, Fotos, Sprachnachrichten) landen in `workspace/inbox/`. Der Agent bekommt den Pfad.
 - Cron-Prompts liegen in `workspace/cron/NAME.md`. `xapient-cron` verändert nur Zeilen mit `# xapient:NAME`.
 - Chat und Cron teilen sich **eine** Session.
+- Bilder an den Owner: `xapient-send --photo a.png [--photo b.jpg …] ["Bildunterschrift"]` (POST `/send-photo`). 1 Bild = Foto, 2–10 = Album, mehr = mehrere Alben; Caption am ersten Bild (HTML, sonst Klartext). Bilder über den Telegram-Foto-Limits (10 MB, B+H > 10000, Seitenverhältnis > 20) gehen als Dokument. Nur Pfade unter `/home/xapient` und `/srv/data/thomas/GIT`. Bei Signal als Anhänge.
 
 ## Sicherheit
 - Nachrichten von fremden Absendern werden ignoriert und geloggt, bevor ein Anhang heruntergeladen wird.
@@ -111,7 +112,7 @@ Details: `tts/README.md`.
 
 ## Erweiterungsideen
 - Eigene Stimme per `/stimme` einlernen (pocket-tts Voice-Cloning, HuggingFace-Token)
-- Dateien zurückschicken (`sendDocument` / signal `attachments`) plus `xapient-send --file`
+- Beliebige Dateien zurückschicken (`xapient-send --file`)
 - Getrennte Sessions pro Cron-Job
 
 Umgesetzt: Spracheingabe (whisper.cpp) · Sprachausgabe (`/voice`, pocket-tts) · Morgen-Brief (Kalender+Wetter) · detached Langzeit-Jobs (`xapient-job`).

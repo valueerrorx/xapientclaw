@@ -8,7 +8,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "start": "node src/gateway.js"
+    "start": "node src/gateway.js",
+    "test": "node --test test/"
   },
   "dependencies": {
     "node-ical": "^0.27.3"

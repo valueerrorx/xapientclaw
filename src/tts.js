@@ -2,21 +2,26 @@
 // The gateway sends the full text as a normal message either way; this only produces
 // the spoken version. Errors are the caller's to swallow (voice must never block a reply).
 
+import { normalizeDe } from './ttsNormalize.js';
+
 // Turn a Telegram/HTML/markdown reply into something that reads well aloud.
 export function speakify(raw) {
   let t = String(raw || '');
-  t = t.replace(/<pre[\s\S]*?<\/pre>/gi, '. Code steht im Text. ');  // code blocks -> hint
-  t = t.replace(/```[\s\S]*?```/g, '. Code steht im Text. ');
+  t = t.replace(/<pre[\s\S]*?<\/pre>/gi, '\nCode steht im Text.\n');  // code blocks -> hint
+  t = t.replace(/```[\s\S]*?```/g, '\nCode steht im Text.\n');
   t = t.replace(/<code>([\s\S]*?)<\/code>/gi, '$1');                 // inline code -> its text
   t = t.replace(/`([^`]*)`/g, '$1');
-  t = t.replace(/<[^>]+>/g, '');                                     // remaining HTML tags
-  t = t.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');  // entities
+  t = t.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');       // remaining HTML tags
+  t = t.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ').replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n)).replace(/&amp;/g, '&');
   t = t.replace(/https?:\/\/\S+/g, ' Link ');                        // URLs -> "Link"
-  t = t.replace(/^\s*[>#\-]+\s?/gm, '');                             // md headings/quotes/list dashes
+  t = t.replace(/^\s*(?:[>#]+|[-*•·]\s)\s*/gm, '');                  // md headings/quotes/list bullets
   t = t.replace(/[•*_#|`]/g, ' ');                                   // stray markers
-  t = t.replace(/[^\p{L}\p{N}\s.,;:!?()\-–—"'%€$°]/gu, ' ');          // drop emojis/symbols, keep text+punct
-  t = t.replace(/\s+/g, ' ').trim();
-  return t;
+  // each line is its own sentence (lists/headings would otherwise run together)
+  t = t.split('\n').map(l => l.trim()).filter(Boolean)
+    .map(l => (/[.!?:;,…]["'“”)]*$/.test(l) ? l : `${l}.`)).join('\n');
+  t = normalizeDe(t);                                                // numbers, units, abbreviations, symbols
+  return t.replace(/\s+/g, ' ').replace(/\s+([.,;:!?])/g, '$1').trim();
 }
 
 // Keep the spoken part reasonable: cut at a sentence boundary near maxChars.

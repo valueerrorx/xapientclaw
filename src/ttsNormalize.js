@@ -1,5 +1,5 @@
 // ttsNormalize.js: German text normalization for TTS (numbers, dates, units, abbreviations, symbols).
-// pocket-tts reads raw text; digits and symbols produce gibberish, so everything is spelled out here.
+// the tts service reads raw text; digits and symbols produce gibberish, so everything is spelled out here.
 
 const ONES = ['null', 'eins', 'zwei', 'drei', 'vier', 'fünf', 'sechs', 'sieben', 'acht', 'neun', 'zehn',
   'elf', 'zwölf', 'dreizehn', 'vierzehn', 'fünfzehn', 'sechzehn', 'siebzehn', 'achtzehn', 'neunzehn'];

@@ -1,6 +1,6 @@
 # xapient
 
-Minimaler, selbst gehosteter Agent: **Telegram (oder Signal) ↔ Claude Code Master-Agent**, mit Cron-Jobs, Memory und Zugriff auf deine Repos. Node ≥ 20, eine npm-Dependency (`node-ical` für den Morgen-Brief). Spracheingabe über whisper.cpp, Sprachausgabe über einen lokalen pocket-tts-Dienst (CPU, keine Cloud).
+Minimaler, selbst gehosteter Agent: **Telegram (oder Signal) ↔ Claude Code Master-Agent**, mit Cron-Jobs, Memory und Zugriff auf deine Repos. Node ≥ 20, eine npm-Dependency (`node-ical` für den Morgen-Brief). Spracheingabe über whisper.cpp, Sprachausgabe über einen lokalen KittenTTS-Dienst (CPU, keine Cloud).
 
 ```
 Telegram-App ──► Bot API (long polling)        [oder: signal-cli daemon]
@@ -19,7 +19,7 @@ Telegram-App ──► Bot API (long polling)        [oder: signal-cli daemon]
 
 ```bash
 sudo -u xapient tar xzf xapient.tar.gz -C /home/xapient      # -> /home/xapient/xapient
-sudo /home/xapient/xapient/install-debian.sh xapient          # root: apt, node 22, cron, linger
+sudo /home/xapient/xapient/install-debian.sh xapient          # root: apt, node 22, tts-dienst, cron, linger
 sudo -iu xapient
 ~/xapient/install-debian.sh                                   # user: claude, systemd unit, config.json
 claude                                                        # einmal einloggen, dann /exit
@@ -30,9 +30,9 @@ claude                                                        # einmal einloggen
 2. Mit `/setjoingroups` → Disable verhinderst du, dass der Bot in Gruppen hinzugefügt werden kann.
 3. Deine **User-ID** bekommst du von **@userinfobot**. Das ist eine Zahl, deine Telefonnummer wird nicht verwendet.
 4. In `config.json` trägst du `telegram.token` und `owners: ["<deine-id>"]` ein.
-5. Starten (Gateway + Sprachdienst):
+5. Starten (der Sprachdienst läuft schon als System-Service aus dem root-Teil):
 ```bash
-systemctl --user enable --now xapient xapient-tts
+systemctl --user enable --now xapient
 journalctl --user -fu xapient
 ```
 6. Den Bot in Telegram öffnen, `/start` drücken und dann `/status` senden.
@@ -71,14 +71,14 @@ kopieren, echte URLs (WebUntis-Stundenplan, Google privat) + Ort fürs Wetter ei
   Hintergrund: Google exportiert Terminfarben nicht ins iCal, daher die Titel-Markierung.
 
 ### Stimme / Sprachausgabe (optional)
-Lokaler TTS-Dienst (`tts/`, pocket-tts) auf `127.0.0.1:8765`. Standardstimme `anna` (weibliche
-Katalogstimme, keine Anmeldung). Steuerung im Chat: `/voice an|aus|auto`.
+Lokaler TTS-Dienst `xapient-tts` (KittenTTS 2 mini, Deutsch, CPU) auf `127.0.0.1:8765`, installiert nach
+`/opt/kitten-tts` per `sudo bash tts/install.sh [user]` (läuft auch im root-Teil von `install-debian.sh`).
+Englische Wörter im Text werden englisch ausgesprochen (mixphon). Steuerung im Chat: `/voice an|aus|auto`.
 - `an` = jede Antwort zusätzlich als Sprachnachricht, `aus` = nur Text,
   `auto` (Standard) = Sprache nur, wenn du selbst eine Sprachnachricht schickst.
 - Der Antworttext geht immer sofort raus; die Stimme kommt separat (ein TTS-Ausfall blockiert nie).
-- Reboot-fest in einer systemd-Sandbox ohne User-Bus: `sudo bash tts/install-service-root.sh`.
-- Eigene Stimme klonen (`/stimme`, geplant) braucht einen HuggingFace-Token in `~/tts/.env`
-  + akzeptierte Terms auf `huggingface.co/kyutai/pocket-tts`; für Katalogstimmen nicht nötig.
+- Stimme (`KITTEN_VOICE`, eigene Stimme als `.npy`) in `/opt/kitten-tts/tts.env`, danach `sudo systemctl restart xapient-tts`.
+- Wortlisten aus Wortschatz Leipzig (CC BY 4.0), Quelle und Neuerzeugung in `tts/README.md`.
 Details: `tts/README.md`.
 
 ## Config
@@ -111,8 +111,7 @@ Details: `tts/README.md`.
 - Prompt Injection über Web- oder Repo-Inhalte bleibt das Hauptrisiko.
 
 ## Erweiterungsideen
-- Eigene Stimme per `/stimme` einlernen (pocket-tts Voice-Cloning, HuggingFace-Token)
 - Beliebige Dateien zurückschicken (`xapient-send --file`)
 - Getrennte Sessions pro Cron-Job
 
-Umgesetzt: Spracheingabe (whisper.cpp) · Sprachausgabe (`/voice`, pocket-tts) · Morgen-Brief (Kalender+Wetter) · detached Langzeit-Jobs (`xapient-job`).
+Umgesetzt: Spracheingabe (whisper.cpp) · Sprachausgabe (`/voice`, KittenTTS) · Morgen-Brief (Kalender+Wetter) · detached Langzeit-Jobs (`xapient-job`).

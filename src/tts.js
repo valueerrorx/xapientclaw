@@ -1,4 +1,4 @@
-// tts.js: talk to the local pocket-tts voice service and prepare text for speech.
+// tts.js: talk to the local kittentts voice service and prepare text for speech.
 // The gateway sends the full text as a normal message either way; this only produces
 // the spoken version. Errors are the caller's to swallow (voice must never block a reply).
 

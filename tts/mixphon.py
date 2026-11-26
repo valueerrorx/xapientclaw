@@ -32,6 +32,15 @@ EN_MAP = {
     "ɬ": "l",   # stimmloser lateraler Frikativ (Fremdnamen)
 }
 
+# Stil (TTS_MIXPHON_STYLE): "de" (Default) ersetzt EN-Laute, die die deutsche Stimme nicht kann
+# (misaki-Diphthonge A/O/Y, æ, ʌ, Flap-T, ᵻ -> "baahkup"), durch Laute aus dem DE-Training.
+# "en" = unveraendertes en-us. I (aɪ) und W (aʊ) kennt auch das DE-Training -> bleiben.
+STYLES = {
+    "en": {},
+    "de": {"A": "eɪ", "O": "oʊ", "Y": "ɔø", "æ": "ɛ", "ʌ": "a", "T": "t", "ᵻ": "ɪ"},
+}
+STYLE = STYLES.get(os.environ.get("TTS_MIXPHON_STYLE", "de").strip().lower(), STYLES["de"])
+
 EN, DE, FORCE_EN, FORCE_DE = set(), set(), set(), set()
 
 
@@ -105,7 +114,7 @@ class MixG2P:
     def _en(self, seg):
         ps, _ = self.en(_Tok(seg))
         ps = (ps or "").strip()
-        for table in (self.fold, EN_MAP):
+        for table in (self.fold, EN_MAP, STYLE):
             for src, dst in table.items():
                 if src in ps:
                     ps = ps.replace(src, dst)

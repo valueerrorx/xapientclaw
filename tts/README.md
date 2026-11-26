@@ -10,6 +10,7 @@ bekommt eine OGG/Opus-Sprachnachricht zurück.
   `POST /speak {text, voice?}` → `audio/ogg`. Logs ohne Textinhalt.
 - `mixphon.py` + `lexicon/` – englische Wörter in deutschem Text englisch aussprechen
   („Play Store", „Pull Request"). Rein deutsche Sätze bleiben unverändert. Aus mit `TTS_MIXPHON=0`.
+  Vokale, die die deutsche Stimme nicht kann (æ, ʌ, eɪ, oʊ), werden angepasst; `TTS_MIXPHON_STYLE=en` = reines en-us.
 - `install.sh` – Installation/Update als root (siehe unten).
 - `tts.env.example` – Vorlage für `/opt/kitten-tts/tts.env` (Stimme, Threads, Port).
 - `../systemd/xapient-tts.service` – Unit-Vorlage (System-Service).

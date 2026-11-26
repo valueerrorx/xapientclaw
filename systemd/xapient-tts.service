@@ -1,11 +1,20 @@
 [Unit]
-Description=Xapient TTS (pocket-tts) lokaler Sprachdienst
-After=network-online.target
+Description=Xapient TTS (KittenTTS) lokaler Sprachdienst
+After=network.target
 
 [Service]
-ExecStart=%h/tts/run-server.sh
+Type=simple
+User=%TTS_USER%
+Group=%TTS_USER%
+Environment=KITTEN_MODEL=/opt/kitten-tts/model HF_HUB_OFFLINE=1 TTS_HOST=127.0.0.1 TTS_PORT=8765
+EnvironmentFile=-/opt/kitten-tts/tts.env
+ExecStart=/opt/kitten-tts/.venv/bin/python /opt/kitten-tts/server.py
 Restart=on-failure
 RestartSec=3
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+NoNewPrivileges=true
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target

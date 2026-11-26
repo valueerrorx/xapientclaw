@@ -1,5 +1,6 @@
 # Immer englisch sprechen. Ein Wort pro Zeile; Kleinschreibung gilt fuer alle Schreibweisen,
-# Grossschreibung nur exakt (z. B. "Main" steht in force_de.txt).
+# Grossschreibung nur exakt.
+main
 branch
 branches
 commit

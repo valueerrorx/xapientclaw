@@ -1,5 +1,4 @@
 # Immer deutsch sprechen (hat Vorrang vor force_en.txt). Gleiche Regeln wie dort.
-main
 app
 apps
 test

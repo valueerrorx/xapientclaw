@@ -1,0 +1,29 @@
+# Immer englisch sprechen. Ein Wort pro Zeile; Kleinschreibung gilt fuer alle Schreibweisen,
+# Grossschreibung nur exakt (z. B. "main" = Branch, "Main" = Fluss steht in force_de.txt).
+main
+branch
+branches
+commit
+commits
+push
+pull
+request
+requests
+review
+reviews
+store
+upload
+uploads
+download
+downloads
+feature
+features
+graphic
+screenshot
+screenshots
+listing
+meeting
+meetings
+morning
+release
+merge

@@ -1,0 +1,6 @@
+# Immer deutsch sprechen (hat Vorrang vor force_en.txt). Gleiche Regeln wie dort.
+Main
+app
+apps
+test
+tests

@@ -15,7 +15,8 @@ workspace/private/*
 # TTS-Runtime/Secrets (falls im Repo-tts/ erzeugt): nie committen
 tts/.env
 tts/.venv/
-tts/__pycache__/
+__pycache__/
+# eigene Stimme (.npy) nur lokal, install.sh nimmt sie von hier mit
 tts/voices/
 tts/models/
 tts/*.ogg

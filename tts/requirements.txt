@@ -1,1 +1,8 @@
-pocket-tts
+# Laufzeit fuer KittenTTS2Tiny (ONNX, CPU). kittenml selbst kommt per install.sh mit --no-deps
+# (sonst zieht es torch/transformers, die der ONNX-Pfad nicht braucht).
+onnxruntime
+numpy
+espeakng_loader
+phonemizer
+huggingface_hub
+soundfile

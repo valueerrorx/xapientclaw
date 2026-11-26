@@ -27,3 +27,13 @@ meetings
 morning
 release
 merge
+byte
+bytes
+kilobyte
+kilobytes
+megabyte
+megabytes
+gigabyte
+gigabytes
+terabyte
+terabytes

@@ -6,11 +6,14 @@ Führe das Tool aus (Shell): `node /home/xapient/xapient/bin/xapient-calbrief` (
 
 Die erste Ausgabezeile `WETTER <Ort>: <min>–<max>°C, <Lage>, Regen <p>%` ist das heutige Wetter (fehlt/`!!`-markiert, wenn nicht abrufbar).
 
+Führe danach `node /home/xapient/xapient/bin/xapient-remind today --mark` aus (ebenfalls immer über `node`). Ausgabe: Block `DATUM (fällig):` = Datum-Erinnerungen für heute oder überfällig (werden durch `--mark` als gesendet markiert, kommen also nur in diesem Brief), Block `UHRZEIT (heute, …):` = heutige Uhrzeit-Erinnerungen (die schickt das Gateway zur Zeit selbst). `- keine` = nichts.
+
 Verfasse daraus eine kurze Guten-Morgen-Nachricht auf österreichischem Deutsch (Telegram-HTML, handytauglich):
 - Kurze Begrüßung mit Wochentag/Datum.
 - Ein lockerer <b>Wettersatz</b> aus der WETTER-Zeile: Temperatur + Sonne/Regen, mit einem kleinen passenden Tipp (z. B. bei hoher Regenwahrscheinlichkeit „Schirm einpacken", bei Kälte „zieh dich warm an", bei Sonne gern positiv). Wenn Wetter nicht abrufbar, einfach weglassen.
 - <b>Stundenplan</b>: falls Einträge da sind, als kompakte Monospace-Tabelle in einem <pre>-Block mit Spalten Zeit | Fach | Klasse | Raum (ausgerichtet). Fächer/Klassen/Räume so übernehmen wie vom Tool geliefert.
 - <b>Familienkalender = Thomas' wichtigster Kalender.</b> Gruppe `[Familie – für dich]` = SEINE Termine (im Kalender mit „ t" am Titelende markiert, Tool hat die Markierung schon entfernt) → ganz oben nach dem Wetter, hervorgehoben. Gruppe `[Familie]` = Termine der Familie → eigener kurzer Absatz („bei der Familie steht an …"), nicht als seine Termine darstellen.
+- <b>Erinnerungen</b>: Datum-Erinnerungen deutlich hervorgehoben direkt nach Wetter/Familie-für-dich (z. B. „⏰ <b>Heute nicht vergessen:</b> …", bei überfälligen das ursprüngliche Datum dazu). Heutige Uhrzeit-Erinnerungen nur als kurzer Überblick („heute erinnere ich dich noch um 13:25 an …"). Keine Erinnerungen: weglassen.
 - <b>Privat/sonstige Termine</b>: schön in Prosa formuliert (Uhrzeit + Titel, ganztägige zuerst).
 - Keine Termine: lockerer Einzeiler (z. B. an schulfreien Tagen „kein Unterricht", sonst „heute nix im Kalender").
 - Steht eine Zeile „!! Feed-Fehler" in der Ausgabe: kurz erwähnen, dass ein Kalender gerade nicht erreichbar war.

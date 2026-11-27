@@ -1,6 +1,7 @@
 // minimal cron scheduler: workspace/cron/schedule.json {name: "m h dom mon dow"}, re-read every minute
 import fs from 'node:fs';
 import path from 'node:path';
+import { fireReminders } from './reminders.js';
 
 const MACROS = { '@hourly': '0 * * * *', '@daily': '0 0 * * *', '@weekly': '0 0 * * 0', '@monthly': '0 0 1 * *', '@yearly': '0 0 1 1 *' };
 const RANGES = [[0, 59], [0, 23], [1, 31], [1, 12], [0, 7]];
@@ -39,8 +40,13 @@ export function readSchedule(workspace) {
   try { return JSON.parse(fs.readFileSync(scheduleFile(workspace), 'utf8')); } catch { return {}; }
 }
 
-export function startScheduler(workspace, fire, log) {
+export function startScheduler(workspace, fire, log, send) {
+  let reminding = false;  // no overlapping reminder runs
   const tick = () => {
+    if (send && !reminding) {
+      reminding = true;
+      Promise.resolve().then(() => fireReminders(workspace, send, log)).catch(e => log('reminders:', e.message)).finally(() => { reminding = false; });
+    }
     const now = new Date();
     for (const [name, expr] of Object.entries(readSchedule(workspace))) {
       try {

@@ -1,0 +1,49 @@
+#!/usr/bin/env node
+// xapient-remind add WANN "text" | list [--all] | remove ID | today [--mark]  — workspace/private/reminders.json (Europe/Vienna)
+import { loadConfig } from '../src/config.js';
+import { parseWhen, readReminders, updateReminders, todayItems, sortKey, isoVienna, showAt } from '../src/reminders.js';
+
+const ws = loadConfig().claude.workspace;
+const [cmd = 'list', ...args] = process.argv.slice(2);
+const fail = msg => { console.error(msg); process.exit(1); };
+const when = r => r.at ? showAt(new Date(r.at)) : `${r.date} (Datum)`;
+const line = r => `${r.id}  ${when(r)}  ${r.text}${r.sent ? `  [gesendet ${r.sent}]` : ''}`;
+
+try {
+  if (cmd === 'add') {
+    const [w, ...rest] = args, text = rest.join(' ').trim();
+    if (!w || !text) fail('usage: xapient-remind add WANN "text"');
+    let parsed;
+    try { parsed = parseWhen(w); } catch (e) { fail(e.message); }
+    let entry;
+    updateReminders(ws, list => {
+      const id = String(list.reduce((m, r) => Math.max(m, +r.id || 0), 0) + 1);
+      entry = { id, text, ...(parsed.at ? { at: isoVienna(parsed.at) } : { date: parsed.date }), created: isoVienna(new Date()), sent: null };
+      list.push(entry);
+    });
+    console.log(`ok: ${when(entry)} -> id ${entry.id}`);
+  } else if (cmd === 'list') {
+    const all = args.includes('--all');
+    const list = readReminders(ws).filter(r => all || !r.sent).sort((a, b) => sortKey(a) - sortKey(b));
+    console.log(list.length ? list.map(line).join('\n') : '(keine Erinnerungen)');
+  } else if (cmd === 'remove') {
+    const id = args[0];
+    if (!id) fail('usage: xapient-remind remove ID');
+    let found = false;
+    updateReminders(ws, list => { found = list.some(r => r.id === id); return list.filter(r => r.id !== id); });
+    if (!found) fail(`keine Erinnerung: ${id}`);
+    console.log(`removed: ${id}`);
+  } else if (cmd === 'today') {
+    const { dates, times } = todayItems(readReminders(ws));
+    console.log('DATUM (fällig):');
+    console.log(dates.length ? dates.map(r => `- ${r.date}  ${r.text}`).join('\n') : '- keine');
+    console.log('UHRZEIT (heute, kommt automatisch zur Zeit):');
+    console.log(times.length ? times.map(r => `- ${showAt(new Date(r.at)).slice(11)}  ${r.text}`).join('\n') : '- keine');
+    if (args.includes('--mark') && dates.length) {
+      const ids = new Set(dates.map(r => r.id)), now = isoVienna(new Date());
+      updateReminders(ws, list => { for (const r of list) if (ids.has(r.id) && !r.sent) r.sent = now; });
+    }
+  } else {
+    fail('usage: xapient-remind add WANN "text" | list [--all] | remove ID | today [--mark]\nWANN: 2027-09-27 | 2026-11-27 13:25 | 13:25 | +2h/+30m/+1d');
+  }
+} catch (e) { fail(`fehler: ${e.message}`); }

@@ -295,6 +295,6 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(cfg.http.port, cfg.http.host, () => log(`http on ${cfg.http.host}:${cfg.http.port}`));
 channel.listen(onMessage, id => owners.includes(String(id)));
-startScheduler(cfg.claude.workspace, inject, log);
+startScheduler(cfg.claude.workspace, inject, log, text => channel.send(owner, text));
 
 for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { session?.kill(); current?.child?.kill('SIGTERM'); process.exit(0); });
